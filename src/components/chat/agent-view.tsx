@@ -10,7 +10,7 @@ import {
   Database,
   GitCompare,
   Calculator,
-  Zap,
+
 } from "lucide-react";
 import type { AgentStep, AgentTool } from "@/lib/storage";
 
