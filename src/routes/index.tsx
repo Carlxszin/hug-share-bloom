@@ -65,6 +65,7 @@ function ChatPage() {
   const [callPickerOpen, setCallPickerOpen] = useState(false);
   const [newChatPickerOpen, setNewChatPickerOpen] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [iqOpen, setIqOpen] = useState(false);
   const [activity, setActivity] = useState<BuilderActivity[]>([]);
   const [focusFile, setFocusFile] = useState<string | null>(null);
   const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);
