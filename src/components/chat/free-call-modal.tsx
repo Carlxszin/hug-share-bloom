@@ -456,20 +456,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
               </div>
             </div>
 
-            {transcript.length > 0 && (
-              <div className="max-h-40 overflow-y-auto scrollbar-thin px-6 py-3 text-sm space-y-2 border-b">
-                {transcript.slice(-6).map((m, i) => (
-                  <div key={i} className="flex gap-2">
-                    <span className="text-[10px] uppercase font-medium text-muted-foreground w-12 shrink-0 pt-0.5">
-                      {m.role === "user" ? "Você" : "Octopus"}
-                    </span>
-                    <span className="text-foreground">{m.text}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="p-6 flex items-center justify-center gap-3">
+            <div className="mt-auto p-6 flex items-center justify-center gap-3">
               {phase === "idle" || phase === "error" ? (
                 <>
                   <Button
@@ -519,7 +506,18 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
                 </>
               )}
             </div>
+            </div>
+            <SideFeed feed={feed} scrollRef={feedScrollRef} />
           </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// keep transcript variable referenced to avoid unused warning if needed elsewhere
+void 0;
+
         </motion.div>
       )}
     </AnimatePresence>
