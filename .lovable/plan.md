@@ -1,104 +1,39 @@
-# Plano: Octopus 10× mais inteligente via métricas
+# Plano — Octopus: aba indevida + leitura inteligente de páginas
 
-A ideia é parar de tratar o Octopus como "um modelo que responde" e passar a tratá-lo como **um sistema que mede tudo, aprende com cada resposta e roteia inteligente** entre modelos/ferramentas. Sem mudar a UI atual — só ganhar inteligência por trás.
+## Problema 1 — Abre aba sozinho ao enviar qualquer mensagem
+Hoje, todo prompt/início de chamada dispara `reserveExternalTab()` em `src/lib/browser-bus.ts`, que faz um `window.open("")` imediato (a "aba reservada Octopus"). Isso foi adicionado para driblar o bloqueio de popup quando o agente *de fato* precisa abrir um site, mas hoje executa **antes** de saber se há intenção de navegação.
 
-## 1. Camada de telemetria (fundação)
+### Correção planejada
+1. Remover a chamada automática de `reserveExternalTab()` no submit do chat e no início da chamada em `src/routes/index.tsx`, `call-modal.tsx`, `free-call-modal.tsx`.
+2. Reservar a aba **só sob gesto explícito**:
+   - Quando o usuário clicar em um link/preview gerado pelo agente.
+   - Quando o agente realmente chamar a tool `open_url` (lazy: tentar `openExternalTab` direto; se bloqueado, mostrar um botão "Abrir site" no chat que reserva no clique).
+3. Detectar intenção de navegação no prompt antes de reservar (regex simples: "abrir", "tocar", "põe", "mostra", URL crua). Sem intenção = sem aba.
 
-Criar `src/lib/metrics.ts` (localStorage, sem backend) que registra **por turno**:
+## Problema 2 — Na chamada o agente é "burro" com vídeos/páginas
+Hoje, na chamada (Realtime e Free), as únicas tools são `web_search` (DDG) e `open_url`. Ele não lê o conteúdo da página, não enxerga campos, não sabe onde está cada coisa. Por isso parece desorientado quando peço um vídeo.
 
-- `intent` (chat / código / pesquisa / imagem / cálculo / voz)
-- `model` usado, `tokensIn/Out`, `latencyMs`, `custoBRL`
-- `toolCalls[]` (quais, quantas, sucesso/erro)
-- `retryCount`, `truncated`, `userEditedAfter` (sinal de insatisfação)
-- `thumb` (👍/👎 opcional no balão)
-- `selfScore` (0-1) — auto-avaliação do próprio modelo no final
+### Correção planejada — "Olho do Octopus"
+1. **Nova aba dedicada de leitura** (`/reader?url=...`) que abre o site **dentro** de um iframe próprio em uma janela controlada pelo Octopus, com toolbar e painel lateral mostrando o que ele está extraindo. Permite ao usuário acompanhar visualmente.
+2. **Novas tools no Realtime e Free-chat**:
+   - `read_page(url)` — fetch server-side, extrai texto + headings + links + formulários (name/id/label/placeholder) e devolve JSON resumido.
+   - `find_video(query)` — busca no YouTube (já temos `youtubeSearch`) + devolve top-3 com título, canal, duração e ID; modelo escolhe e chama `open_url` com `youtube.com/watch?v=ID`.
+   - `inspect_fields(url)` — versão focada em formulários, lista cada campo com seletor/label, para ele saber "onde está cada coisa".
+3. **Pipeline de contexto na call**: ao chamar `read_page`, devolver no `tool_output` um resumo curto (≤ 800 tokens) + lista de seções, e injetar mensagem de sistema do tipo "Você acabou de ler X. Resuma para o chefe em 1 frase antes de agir".
+4. **Cache** desses reads usando o cache já existente do agente, para não pagar duas vezes a mesma página.
+5. **UI da call**: no `SideFeed`, mostrar cards "🔎 leu página X" e "🎬 escolheu vídeo Y" para feedback visual em tempo real.
 
-Tudo agregado em `metrics:rollup` (médias móveis de 50 turnos).
+## Arquivos que serão tocados (na execução, não agora)
+- `src/lib/browser-bus.ts` — remover auto-reserve.
+- `src/routes/index.tsx`, `src/components/chat/composer.tsx` — não reservar aba no submit.
+- `src/components/chat/call-modal.tsx`, `free-call-modal.tsx` — reservar só quando tool `open_url` for chamada.
+- `src/routes/api/realtime-session.ts` — registrar tools `read_page`, `find_video`, `inspect_fields`.
+- `src/routes/api/free-chat.ts` — idem para o modo grátis.
+- `src/routes/api/read-page.ts` *(novo)* — fetch + extração HTML → JSON.
+- `src/routes/api/find-video.ts` *(novo)* — wrapper YouTube.
+- `src/components/chat/side-feed.tsx` — novos cards de tool.
 
-## 2. Painel "Inteligência" (visível ao chefe)
+## Custo extra esperado
+Zero no modo Free (tudo via fetch + scraping). No Realtime, ~+150 tokens por `read_page` (resumo enxuto), ainda dentro do teto de 200 tokens já configurado.
 
-Botão novo no header → modal com:
-
-- Acurácia percebida (👍 / total)
-- Custo médio por resposta útil (R$)
-- Latência p50/p95
-- Taxa de uso de ferramenta vs. resposta direta
-- Modelo campeão por intent (heatmap)
-- Tendência (últimos 7 dias)
-
-Mensurável = melhorável. Sem isso, "10× mais inteligente" é achismo.
-
-## 3. Roteador adaptativo de modelo
-
-`src/lib/router.ts` — antes de cada chamada, classifica a intent (heurística rápida + regex) e escolhe o modelo com **melhor score histórico** para aquela intent dentro de um teto de custo:
-
-```text
-intent=código  → gemini-3-flash (rápido) → escala p/ gpt-5.4 se selfScore<0.6
-intent=chat    → gemini-3-flash-lite (barato)
-intent=raciocínio profundo → gpt-5.5 / gemini-3.1-pro
-intent=pesquisa → flash + tools (web_search, fetch_page)
-```
-
-Se o modelo barato falhar/auto-avaliar baixo → **escalonamento automático** para o premium e re-tentativa (1×). Resultado guardado para treinar o roteador.
-
-## 4. Self-critique loop (qualidade real)
-
-Depois de gerar resposta, em **1 chamada extra barata** (gemini-flash-lite), pedir:
-
-```text
-Pontue 0-1: precisão, completude, segue instrução, formatação. JSON.
-```
-
-- Score < 0.65 → regenera com modelo mais forte + nota interna do que faltou.
-- Score guardado em métricas → alimenta roteador (passo 3).
-
-Custo: ~R$0,0003/turno. Ganho de qualidade: alto.
-
-## 5. Memória semântica (contexto persistente)
-
-`src/lib/memory.ts` — após cada turno extrai (via flash-lite):
-
-- Fatos sobre o chefe ("prefere respostas curtas", "trabalha com X")
-- Projetos abertos / decisões / restrições
-- Vocabulário recorrente
-
-Armazena em localStorage com **embeddings locais** (`@xenova/transformers`, MiniLM, 100% grátis no browser). Antes de cada prompt: top-3 memórias mais similares vão no system prompt. Resultado: ele **lembra do chefe** entre conversas sem custo de API.
-
-## 6. Prompt engineering versionado
-
-`src/lib/prompts/` com versões A/B do system prompt (persona Octopus). Métricas comparam v1 vs v2 automaticamente — o vencedor vira default. Hoje o prompt é fixo e nunca melhora.
-
-## 7. Cache semântico de respostas
-
-Antes de chamar o modelo: embed da pergunta → se similaridade > 0.92 com pergunta recente → reusa resposta. Economiza ~20-30% das chamadas em uso real e responde instantâneo.
-
-## 8. Métrica de "inteligência composta"
-
-Um único número visível (0-100):
-
-```text
-IQ = 0.4·acurácia + 0.2·(1-latência_norm) + 0.2·(1-custo_norm)
-   + 0.1·toolSuccess + 0.1·memoryHitRate
-```
-
-Antes/depois mensurável. Meta: sair de baseline (~40) para 80+ → o "10×" fica concreto.
-
-## Ordem de entrega sugerida (incremental, cada passo já melhora)
-
-1. **Telemetria + painel** (passos 1-2) — sem isso voamos cegos.
-2. **Self-critique + escalonamento** (passo 4) — maior ganho de qualidade por R$.
-3. **Roteador adaptativo** (passo 3) — corta custo e acelera.
-4. **Memória semântica** (passo 5) — ganho de UX gigante.
-5. **Cache semântico + A/B de prompts** (passos 6-7) — polimento.
-6. **Score IQ composto** (passo 8) — fecha o ciclo.
-
-## Detalhes técnicos
-
-- Tudo client-side (localStorage + IndexedDB para embeddings). Zero infra nova.
-- `@xenova/transformers` roda MiniLM no browser via WASM (~25MB, cacheado). Grátis.
-- Self-critique e classificação de intent usam `google/gemini-3.1-flash-lite` via gateway Lovable (já configurado em `free-chat.ts`).
-- Roteador é função pura → fácil de testar.
-- Painel reaproveita `framer-motion` e estilo glass já existentes.
-- Nada quebra modos atuais (chat/agente/chamada/imagem) — todos passam a logar métricas e ganhar self-critique opcional.
-
-Posso começar pelo passo 1+2 (telemetria + painel) para você já enxergar o baseline antes de eu mexer no roteamento. Confirma, chefe?
+Quer que eu prossiga com a implementação, chefe?
