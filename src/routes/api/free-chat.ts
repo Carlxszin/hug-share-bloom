@@ -20,11 +20,37 @@ const TOOLS = [
     function: {
       name: "web_search",
       description:
-        "Pesquisa rápida na web (DuckDuckGo). Use sempre que o usuário pedir uma informação atual, preço, notícia, ou algo que você não saiba com certeza. Retorna até 6 resultados (título, url, snippet).",
+        "Pesquisa rápida na web (DuckDuckGo). Use para informação atual, preço, notícia.",
       parameters: {
         type: "object",
-        properties: { query: { type: "string", description: "termos de busca em português" } },
+        properties: { query: { type: "string" } },
         required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "find_video",
+      description:
+        "Busca vídeos no YouTube e devolve top resultados (id, título, canal, url). Use SEMPRE para pedidos de vídeo/música/clipe.",
+      parameters: {
+        type: "object",
+        properties: { query: { type: "string" } },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "read_page",
+      description:
+        "Lê uma página: título, headings, texto resumido, e CAMPOS de formulário. Use para entender uma página antes de agir.",
+      parameters: {
+        type: "object",
+        properties: { url: { type: "string" } },
+        required: ["url"],
       },
     },
   },
@@ -33,12 +59,12 @@ const TOOLS = [
     function: {
       name: "open_url",
       description:
-        "Abre uma URL em uma nova aba do navegador do usuário, em tempo real. Use quando o usuário pedir para 'abrir', 'ir para', 'mostrar', 'navegar para' um site, ou quando faz sentido visualizar uma página descoberta na pesquisa. Sempre confirme o que está abrindo na sua resposta de voz.",
+        "Abre uma URL no navegador embutido do chefe AGORA. Para vídeo/música, chame find_video PRIMEIRO e use a url do resultado.",
       parameters: {
         type: "object",
         properties: {
-          url: { type: "string", description: "URL completa (https://...)" },
-          reason: { type: "string", description: "motivo curto, ex: 'site oficial'" },
+          url: { type: "string" },
+          reason: { type: "string" },
         },
         required: ["url"],
       },
@@ -48,15 +74,15 @@ const TOOLS = [
 
 const SYSTEM_TOOLS = `${PERSONA_SYSTEM_VOICE}
 
-Você está em uma CHAMADA DE VOZ. Suas respostas devem ter no máximo 1-2 frases curtas e naturais (vão ser faladas em voz alta).
+Você está em uma CHAMADA DE VOZ. Respostas no máximo 1-2 frases curtas.
 
-Você possui ferramentas em tempo real:
-- web_search(query): pesquisa na web. Use SEMPRE que precisar de informação atual ou específica.
-- open_url(url, reason): abre uma página no navegador do chefe AGORA, em uma nova aba.
+Ferramentas:
+- web_search(query): pesquisa.
+- find_video(query): busca vídeos no YouTube → SEMPRE use para pedidos de música/vídeo.
+- read_page(url): lê página + campos (para entender onde está cada coisa).
+- open_url(url): abre página no navegador embutido do chefe.
 
-Quando o chefe pedir para "abrir", "ir em", "mostrar" um site (ex.: "abre o YouTube", "vai no Google"), use open_url imediatamente. Não diga que não pode — VOCÊ PODE abrir páginas web em novas abas.
-Se o chefe pedir um app nativo (ex.: "abre o Chrome", "abre o WhatsApp"), abra a versão web equivalente (https://www.google.com, https://web.whatsapp.com, etc.) e avise.
-Sempre confirme em voz o que está fazendo, ex.: "Pronto, chefe, abri o YouTube pra você."`;
+Fluxo: para vídeo → find_video → open_url do vídeo escolhido. Para sites → open_url. Confirme em 1 frase. Nunca diga que não pode.`;
 
 function stripHtml(html: string): string {
   return html
@@ -166,6 +192,29 @@ export const Route = createFileRoute("/api/free-chat")({
                   const links = await ddgSearch(String(args.query));
                   searches.push({ query: String(args.query), count: links.length });
                   result = JSON.stringify(links);
+                } else if (call.function.name === "find_video") {
+                  const origin = new URL(request.url).origin;
+                  const r = await fetch(`${origin}/api/find-video`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: String(args.query) }),
+                  });
+                  const data = r.ok ? await r.json() : { videos: [] };
+                  searches.push({ query: `🎬 ${args.query}`, count: data.videos?.length ?? 0 });
+                  result = JSON.stringify(data);
+                } else if (call.function.name === "read_page") {
+                  const origin = new URL(request.url).origin;
+                  const r = await fetch(`${origin}/api/read-page`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: String(args.url) }),
+                  });
+                  const data = r.ok ? await r.json() : { error: await r.text() };
+                  // Trim text so the model doesn't choke on huge pages
+                  if (data.text) data.text = String(data.text).slice(0, 1500);
+                  if (Array.isArray(data.headings)) data.headings = data.headings.slice(0, 10);
+                  if (Array.isArray(data.fields)) data.fields = data.fields.slice(0, 15);
+                  result = JSON.stringify(data);
                 } else if (call.function.name === "open_url") {
                   const url = String(args.url);
                   opens.push({ url, reason: args.reason });

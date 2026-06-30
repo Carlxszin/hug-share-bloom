@@ -6,7 +6,6 @@ import { SideFeed } from "./call-modal";
 import {
   closeReservedExternalTabIfUnused,
   openInAppBrowser,
-  reserveExternalTab,
   sendBrowserCommand,
 } from "@/lib/browser-bus";
 import { detectImagePrompt, enqueueImage } from "@/lib/image-queue";
@@ -301,7 +300,6 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
   }, []);
 
   const start = useCallback(async () => {
-    reserveExternalTab();
     setError(null);
     setFeed([]);
     const rec = buildRecognition();

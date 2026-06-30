@@ -6,7 +6,6 @@ import { realtimeCostUSD } from "@/lib/models";
 import {
   closeReservedExternalTabIfUnused,
   openInAppBrowser,
-  reserveExternalTab,
   sendBrowserCommand,
 } from "@/lib/browser-bus";
 import { detectImagePrompt, enqueueImage } from "@/lib/image-queue";
@@ -123,6 +122,47 @@ export function CallModal({
           return JSON.stringify({ error: (e as Error).message });
         }
       }
+      if (name === "find_video") {
+        const query = String(args.query ?? "");
+        pushFeed({ kind: "search", query: `🎬 ${query}` });
+        try {
+          const res = await fetch("/api/find-video", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query }),
+          });
+          if (!res.ok) throw new Error(await res.text());
+          const data = (await res.json()) as { videos: { id: string; title: string; channel?: string; url: string }[] };
+          return JSON.stringify({ query, videos: data.videos.slice(0, 5) });
+        } catch (e) {
+          pushFeed({ kind: "tool-error", text: `Busca de vídeo falhou: ${(e as Error).message}` });
+          return JSON.stringify({ error: (e as Error).message });
+        }
+      }
+      if (name === "read_page") {
+        const url = String(args.url ?? "");
+        if (!url) return JSON.stringify({ error: "url ausente" });
+        pushFeed({ kind: "search", query: `📖 ${url}` });
+        try {
+          const res = await fetch("/api/read-page", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url }),
+          });
+          if (!res.ok) throw new Error(await res.text());
+          const data = await res.json();
+          return JSON.stringify({
+            url,
+            title: data.title,
+            headings: (data.headings ?? []).slice(0, 10),
+            fields: (data.fields ?? []).slice(0, 15),
+            text: (data.text ?? "").slice(0, 1200),
+          });
+        } catch (e) {
+          pushFeed({ kind: "tool-error", text: `Leitura falhou: ${(e as Error).message}` });
+          return JSON.stringify({ error: (e as Error).message });
+        }
+      }
       return JSON.stringify({ error: `tool desconhecida: ${name}` });
     },
     [pushFeed],
@@ -204,7 +244,6 @@ export function CallModal({
   );
 
   const start = useCallback(async () => {
-    reserveExternalTab();
     setStatus("connecting");
     setError(null);
     setUsage({ textIn: 0, textOut: 0, audioIn: 0, audioOut: 0 });
