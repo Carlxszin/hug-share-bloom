@@ -154,6 +154,11 @@ export function CallModal({
           if (/\b(pausa|pausar|pare|para)\b/.test(n) && /(música|musica|vídeo|video|som|áudio|audio)/.test(n)) sendBrowserCommand("pause");
           else if (/\b(toca|tocar|continua|continuar|play)\b/.test(n) && /(música|musica|vídeo|video|som)/.test(n)) sendBrowserCommand("play");
           else if (/\b(fecha|fechar|feche)\b/.test(n) && /(aba|site|página|pagina|janela|navegador)/.test(n)) sendBrowserCommand("close");
+          const imgPrompt = detectImagePrompt(text);
+          if (imgPrompt) {
+            enqueueImage(imgPrompt);
+            pushFeed({ kind: "open", url: `🎨 ${imgPrompt}` });
+          }
           pushFeed({ kind: "user", text });
         }
       } else if (type === "response.audio_transcript.done") {
