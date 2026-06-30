@@ -16,6 +16,8 @@ import { NewChatPicker } from "@/components/chat/new-chat-picker";
 import { BuilderView } from "@/components/chat/builder-view";
 import { AgentView } from "@/components/chat/agent-view";
 import { EmbeddedBrowser } from "@/components/chat/embedded-browser";
+import { ImageQueuePanel } from "@/components/chat/image-queue-panel";
+import { detectImagePrompt, enqueueImage } from "@/lib/image-queue";
 import { closeReservedExternalTabIfUnused, openInAppBrowser, reserveExternalTab } from "@/lib/browser-bus";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -147,6 +149,35 @@ function ChatPage() {
     if (active.kind === "builder") return onSubmitBuilder();
     if (active.kind === "agent") return onSubmitAgent();
     const text = input.trim();
+
+    // Image-generation shortcut: enqueue + lightweight ack, no model call.
+    const imagePrompt = detectImagePrompt(text);
+    if (imagePrompt) {
+      enqueueImage(imagePrompt);
+      setInput("");
+      const userMsg: Message = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: text,
+        createdAt: Date.now(),
+      };
+      const ackMsg: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `Pode deixar, chefe — já coloquei na fila: **${imagePrompt}**. Enquanto eu desenho aí no canto, manda mais o que precisar. 🎨`,
+        model: active.model,
+        createdAt: Date.now(),
+      };
+      const isFirstUserMessage = active.messages.length === 0;
+      updateConversation(active.id, (c) => ({
+        ...c,
+        title: isFirstUserMessage ? text.slice(0, 48) : c.title,
+        messages: [...c.messages, userMsg, ackMsg],
+        updatedAt: Date.now(),
+      }));
+      return;
+    }
+
     reserveExternalTab();
     setInput("");
 
@@ -590,6 +621,7 @@ function ChatPage() {
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 h-[520px] w-[520px] rounded-full bg-primary/[0.07] blur-[140px] ambient-glow" />
         </div>
+        <ImageQueuePanel className="top-20" />
 
         <header className="relative h-16 flex items-center justify-between px-6 md:px-8 gap-4 border-b border-white/5 bg-background/40 backdrop-blur-xl z-10">
           <div className="flex items-center gap-2 min-w-0">

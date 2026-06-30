@@ -9,6 +9,8 @@ import {
   reserveExternalTab,
   sendBrowserCommand,
 } from "@/lib/browser-bus";
+import { detectImagePrompt, enqueueImage } from "@/lib/image-queue";
+import { ImageQueuePanel } from "./image-queue-panel";
 
 type Usage = { textIn: number; textOut: number; audioIn: number; audioOut: number };
 type FeedItem =
@@ -154,6 +156,11 @@ export function CallModal({
           if (/\b(pausa|pausar|pare|para)\b/.test(n) && /(música|musica|vídeo|video|som|áudio|audio)/.test(n)) sendBrowserCommand("pause");
           else if (/\b(toca|tocar|continua|continuar|play)\b/.test(n) && /(música|musica|vídeo|video|som)/.test(n)) sendBrowserCommand("play");
           else if (/\b(fecha|fechar|feche)\b/.test(n) && /(aba|site|página|pagina|janela|navegador)/.test(n)) sendBrowserCommand("close");
+          const imgPrompt = detectImagePrompt(text);
+          if (imgPrompt) {
+            enqueueImage(imgPrompt);
+            pushFeed({ kind: "open", url: `🎨 ${imgPrompt}` });
+          }
           pushFeed({ kind: "user", text });
         }
       } else if (type === "response.audio_transcript.done") {
@@ -321,6 +328,8 @@ export function CallModal({
             if (e.target === e.currentTarget && status !== "live") onClose();
           }}
         >
+          <ImageQueuePanel position="fixed" />
+
           <motion.div
             initial={{ scale: 0.92, opacity: 0, y: 12 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}

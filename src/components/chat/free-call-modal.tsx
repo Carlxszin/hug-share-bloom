@@ -9,6 +9,8 @@ import {
   reserveExternalTab,
   sendBrowserCommand,
 } from "@/lib/browser-bus";
+import { detectImagePrompt, enqueueImage } from "@/lib/image-queue";
+import { ImageQueuePanel } from "./image-queue-panel";
 
 type FeedItem =
   | { kind: "user"; text: string }
@@ -153,6 +155,20 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
       setTranscript((p) => [...p, { role: "user", text: clean }]);
       setFeed((p) => [...p, { kind: "user", text: clean }]);
       setPartial("");
+
+      // Voice-triggered image generation — enqueue and keep listening.
+      const imgPrompt = detectImagePrompt(clean);
+      if (imgPrompt) {
+        enqueueImage(imgPrompt);
+        const ack = `Tô criando agora, chefe: ${imgPrompt}. Vai aparecendo aí no canto. Pode falar mais o que precisar.`;
+        setTranscript((p) => [...p, { role: "assistant", text: ack }]);
+        setFeed((p) => [...p, { kind: "assistant", text: ack }]);
+        setActive("tts");
+        setPhase("speaking");
+        await speak(ack);
+        return;
+      }
+
       setActive("llm");
       setPhase("thinking");
 
@@ -371,6 +387,8 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
             if (e.target === e.currentTarget && phase === "idle") onClose();
           }}
         >
+          <ImageQueuePanel position="fixed" />
+
           <motion.div
             initial={{ scale: 0.92, opacity: 0, y: 12 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
