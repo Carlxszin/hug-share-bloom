@@ -93,6 +93,11 @@ function StepCard({ step }: { step: AgentStep }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
             {label}
+            {step.cached && (
+              <span className="px-1.5 py-0.5 rounded bg-success/15 text-success text-[9px] tracking-wider">
+                CACHE
+              </span>
+            )}
             {step.ok === false ? (
               <AlertTriangle className="h-3 w-3 text-destructive" />
             ) : (
