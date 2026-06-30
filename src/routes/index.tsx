@@ -217,6 +217,45 @@ function ChatPage() {
     abortRef.current = controller;
     const t0 = performance.now();
 
+    // Semantic cache check — only for short standalone prompts (no chat history reuse).
+    let cacheEmbedding: number[] | null = null;
+    if (active.messages.length === 0 && text.length < 400) {
+      try {
+        const { hit, queryEmbedding } = await findSimilar(text);
+        cacheEmbedding = queryEmbedding;
+        if (hit) {
+          updateConversation(active.id, (c) => ({
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === assistantMsg.id
+                ? { ...m, content: hit.entry.reply, costUSD: 0, model: hit.entry.model }
+                : m,
+            ),
+            updatedAt: Date.now(),
+          }));
+          logTurn({
+            intent,
+            model: hit.entry.model,
+            mode: "paid",
+            tokensIn: 0,
+            tokensOut: 0,
+            latencyMs: Math.round(performance.now() - t0),
+            costUSD: 0,
+            costBRL: 0,
+            toolCalls: [],
+            retryCount: 0,
+            truncated: false,
+            cacheHit: true,
+          });
+          setLoading(false);
+          return;
+        }
+      } catch {
+        /* cache miss path */
+      }
+    }
+
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
