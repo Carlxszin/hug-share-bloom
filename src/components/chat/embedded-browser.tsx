@@ -12,10 +12,22 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   clearHistory,
+  closeExternalTab,
+  closeReservedExternalTabIfUnused,
   loadHistory,
+  openExternalTab,
   subscribeBrowserBus,
   subscribeBrowserCommands,
 } from "@/lib/browser-bus";
+
+function shouldOpenExternalAutomatically(url: string) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    return host === "youtu.be" || host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com");
+  } catch {
+    return false;
+  }
+}
 
 /**
  * In-app browser panel. Sites that send X-Frame-Options: DENY (Google,
@@ -37,12 +49,15 @@ export function EmbeddedBrowser({
   const [showHistory, setShowHistory] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const blockTimer = useRef<number | null>(null);
-  const externalTabRef = useRef<Window | null>(null);
   const autoOpenedFor = useRef<string | null>(null);
 
   const current = idx >= 0 ? stack[idx] : null;
 
   const go = useCallback((url: string) => {
+    if (shouldOpenExternalAutomatically(url) && autoOpenedFor.current !== url) {
+      autoOpenedFor.current = url;
+      openExternalTab(url);
+    }
     setStack((s) => {
       const trimmed = s.slice(0, Math.max(0, idx + 1));
       const next = [...trimmed, url];
@@ -59,8 +74,6 @@ export function EmbeddedBrowser({
     const offCmd = subscribeBrowserCommands((cmd) => {
       const iframe = iframeRef.current;
       if (cmd === "close") {
-        try { externalTabRef.current?.close(); } catch { /* ignore */ }
-        externalTabRef.current = null;
         if (iframe?.contentWindow) {
           iframe.contentWindow.postMessage(
             JSON.stringify({ event: "command", func: "pauseVideo", args: [] }),
@@ -111,17 +124,21 @@ export function EmbeddedBrowser({
       blockTimer.current = null;
     }
     setBlocked(false);
+    closeReservedExternalTabIfUnused();
   };
+
+  useEffect(() => {
+    if (!current || autoOpenedFor.current === current) return;
+    if (!shouldOpenExternalAutomatically(current)) return;
+    autoOpenedFor.current = current;
+    openExternalTab(current);
+  }, [current]);
 
   // Auto-open in a real new tab when the embed gets blocked
   useEffect(() => {
     if (blocked && current && autoOpenedFor.current !== current) {
       autoOpenedFor.current = current;
-      try {
-        externalTabRef.current = window.open(current, "_blank", "noopener,noreferrer");
-      } catch {
-        /* popup blocked */
-      }
+      openExternalTab(current);
     }
   }, [blocked, current]);
 
@@ -212,7 +229,7 @@ export function EmbeddedBrowser({
           variant="ghost"
           className="h-7 w-7"
           disabled={!current}
-          onClick={() => current && window.open(current, "_blank", "noopener,noreferrer")}
+          onClick={() => current && openExternalTab(current)}
           aria-label="Abrir externo"
         >
           <ExternalLink className="h-3.5 w-3.5" />
@@ -272,7 +289,7 @@ export function EmbeddedBrowser({
                     size="sm"
                     onClick={() => {
                       if (!current) return;
-                      externalTabRef.current = window.open(current, "_blank", "noopener,noreferrer");
+                      openExternalTab(current);
                     }}
                     className="gap-2"
                   >
@@ -282,8 +299,7 @@ export function EmbeddedBrowser({
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      try { externalTabRef.current?.close(); } catch { /* ignore */ }
-                      externalTabRef.current = null;
+                      closeExternalTab();
                       setStack([]); setIdx(-1); setBlocked(false);
                     }}
                     className="gap-2"

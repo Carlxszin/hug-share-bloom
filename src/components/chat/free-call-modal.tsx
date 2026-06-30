@@ -3,7 +3,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Phone, PhoneOff, Mic, MicOff, Loader2, Sparkles, CheckCircle2, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SideFeed } from "./call-modal";
-import { openInAppBrowser, sendBrowserCommand } from "@/lib/browser-bus";
+import {
+  closeReservedExternalTabIfUnused,
+  openInAppBrowser,
+  reserveExternalTab,
+  sendBrowserCommand,
+} from "@/lib/browser-bus";
 
 type FeedItem =
   | { kind: "user"; text: string }
@@ -280,6 +285,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
   }, []);
 
   const start = useCallback(async () => {
+    reserveExternalTab();
     setError(null);
     setFeed([]);
     const rec = buildRecognition();
@@ -314,6 +320,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
     try { recRef.current?.abort(); } catch { /* noop */ }
     recRef.current = null;
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    closeReservedExternalTabIfUnused();
     setPhase("idle");
     setActive(null);
     setPartial("");
