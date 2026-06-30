@@ -9,6 +9,8 @@ import {
   reserveExternalTab,
   sendBrowserCommand,
 } from "@/lib/browser-bus";
+import { detectImagePrompt, enqueueImage } from "@/lib/image-queue";
+import { ImageQueuePanel } from "./image-queue-panel";
 
 type Usage = { textIn: number; textOut: number; audioIn: number; audioOut: number };
 type FeedItem =
