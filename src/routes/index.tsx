@@ -15,6 +15,8 @@ import { ModelSelector } from "@/components/chat/model-selector";
 import { NewChatPicker } from "@/components/chat/new-chat-picker";
 import { BuilderView } from "@/components/chat/builder-view";
 import { AgentView } from "@/components/chat/agent-view";
+import { EmbeddedBrowser } from "@/components/chat/embedded-browser";
+import { openInAppBrowser } from "@/lib/browser-bus";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   loadConversations,
@@ -45,23 +47,8 @@ export type BuilderActivity = {
   ts: number;
 };
 
-const AGENT_BROWSER_ACTION_RE =
-  /\b(abra|abre|abrir|abrindo|mostra|mostre|mostrar|toca|toque|tocar|coloca|coloque|botar|bota|bote|reproduz|reproduza|navega|navegue)\b/i;
+// (no external popups — agent navigation happens in the in-app EmbeddedBrowser)
 
-function prepareAgentTab(text: string) {
-  if (typeof window === "undefined" || !AGENT_BROWSER_ACTION_RE.test(text)) return null;
-  const tab = window.open("about:blank", "_blank");
-  if (!tab) return null;
-  try {
-    tab.opener = null;
-    tab.document.title = "Octopus abrindo…";
-    tab.document.body.innerHTML =
-      '<div style="min-height:100vh;display:grid;place-items:center;background:#0b0b0c;color:#f97316;font:16px system-ui">Octopus está abrindo, chefe…</div>';
-  } catch {
-    /* cross-browser guard */
-  }
-  return tab;
-}
 
 function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
