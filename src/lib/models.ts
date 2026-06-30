@@ -66,12 +66,13 @@ export const MODELS: ModelInfo[] = [
 export const DEFAULT_MODEL = "gpt-5-mini";
 
 // Realtime voice model pricing (USD per 1M tokens)
-export const REALTIME_MODEL = "gpt-realtime";
+// Usando o "mini" por padrão: ~70% mais barato que o gpt-realtime full.
+export const REALTIME_MODEL = "gpt-realtime-mini";
 export const REALTIME_PRICING = {
-  textIn: 4,
-  textOut: 16,
-  audioIn: 32,
-  audioOut: 64,
+  textIn: 0.6,
+  textOut: 2.4,
+  audioIn: 10,
+  audioOut: 20,
 };
 
 // Whisper transcription (USD per minute)
