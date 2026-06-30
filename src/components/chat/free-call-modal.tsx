@@ -54,6 +54,9 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const rateRef = useRef(rate);
   const volumeRef = useRef(volume);
+  const speakingRef = useRef(false);
+  const lastAssistantRef = useRef<string>("");
+  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { mutedRef.current = muted; }, [muted]);
