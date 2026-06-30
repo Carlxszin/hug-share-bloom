@@ -60,16 +60,17 @@ export function AgentView({
 }
 
 function StepCard({ step }: { step: AgentStep }) {
-  const Icon =
-    step.tool === "web_search" ? Search : step.tool === "fetch_page" ? Globe : Camera;
-  const label =
-    step.tool === "web_search"
-      ? "Pesquisa"
-      : step.tool === "fetch_page"
-        ? "Leitura"
-        : "Screenshot";
+  const meta = TOOL_META[step.tool] ?? { icon: Search, label: step.tool };
+  const Icon = meta.icon;
+  const label = meta.label;
   const arg =
-    (step.input?.query as string) ?? (step.input?.url as string) ?? "";
+    (step.input?.query as string) ??
+    (step.input?.url as string) ??
+    (step.input?.expression as string) ??
+    (Array.isArray(step.input?.urls)
+      ? (step.input.urls as string[]).join(", ")
+      : "") ??
+    "";
 
   return (
     <motion.div
