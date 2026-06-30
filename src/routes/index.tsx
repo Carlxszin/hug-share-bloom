@@ -514,7 +514,7 @@ function ChatPage() {
               ) : (
                 <div className="max-w-3xl mx-auto">
                   {active.messages.map((m) => (
-                    <MessageBubble key={m.id} message={m} onPreviewHtml={setPreviewHtml} />
+                    <MessageBubble key={m.id} message={m} rate={rate} onPreviewHtml={setPreviewHtml} />
                   ))}
                 </div>
               )}
