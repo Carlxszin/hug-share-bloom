@@ -161,13 +161,13 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
         return;
       }
 
-      // CRITICAL: explicitly resume listening after TTS finishes
+      // Resume listening after TTS — small delay so room echo doesn't retrigger SR
       if (runningRef.current) {
         setActive("stt");
         setPhase("listening");
-        startRecognition();
+        if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+        restartTimerRef.current = setTimeout(() => startRecognition(), 350);
       }
-    };
   }, [speak, startRecognition]);
 
   const buildRecognition = useCallback((): SpeechRecognition | null => {
