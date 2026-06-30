@@ -581,6 +581,11 @@ function ChatPage() {
                 <Sparkles className="h-3 w-3" /> Builder
               </span>
             )}
+            {isAgent && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-success font-semibold bg-success/10 border border-success/20 rounded-full px-2.5 py-1">
+                <Sparkles className="h-3 w-3" /> Agente
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <ModelSelector
