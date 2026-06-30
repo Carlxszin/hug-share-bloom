@@ -8,13 +8,20 @@ export type Message = {
   inputTokens?: number;
   outputTokens?: number;
   createdAt: number;
+  /** Builder-mode: list of files changed in this turn (for badge). */
+  fileChanges?: { path: string; action: "write" | "edit" | "delete" }[];
 };
+
+export type ConversationKind = "chat" | "builder";
 
 export type Conversation = {
   id: string;
   title: string;
   model: string;
+  kind: ConversationKind;
   messages: Message[];
+  /** Builder-mode workspace: path → content. */
+  files?: Record<string, string>;
   createdAt: number;
   updatedAt: number;
 };
@@ -34,7 +41,9 @@ export function loadConversations(): Conversation[] {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as Conversation[];
+    const list = JSON.parse(raw) as Conversation[];
+    // Back-compat: legacy convos without `kind`
+    return list.map((c) => ({ ...c, kind: c.kind ?? "chat" }));
   } catch {
     return [];
   }
@@ -45,13 +54,18 @@ export function saveConversations(list: Conversation[]) {
   localStorage.setItem(KEY, JSON.stringify(list));
 }
 
-export function newConversation(model = DEFAULT_MODEL): Conversation {
+export function newConversation(
+  model = DEFAULT_MODEL,
+  kind: ConversationKind = "chat",
+): Conversation {
   const now = Date.now();
   return {
     id: crypto.randomUUID(),
-    title: "Nova conversa",
+    title: kind === "builder" ? "Novo site" : "Nova conversa",
     model,
+    kind,
     messages: [],
+    files: kind === "builder" ? {} : undefined,
     createdAt: now,
     updatedAt: now,
   };
