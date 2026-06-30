@@ -16,7 +16,13 @@ type ChatMessage = {
 type Body = {
   model: string;
   messages: { role: "user" | "assistant"; content: string }[];
+  /** Hard USD cap per task. Default 0.10 (~R$ 0,50). */
+  maxUsd?: number;
 };
+
+const MAX_STEPS = 12;
+const MAX_FETCHES = 8;
+const DEFAULT_MAX_USD = 0.1;
 
 const TOOLS = [
   {
@@ -24,7 +30,7 @@ const TOOLS = [
     function: {
       name: "web_search",
       description:
-        "Search the web via DuckDuckGo. Returns up to 8 results with title, URL and snippet. Use this to discover relevant pages.",
+        "Search the web via DuckDuckGo. Returns up to 8 results (title, url, snippet).",
       parameters: {
         type: "object",
         properties: { query: { type: "string" } },
@@ -37,7 +43,7 @@ const TOOLS = [
     function: {
       name: "fetch_page",
       description:
-        "Fetch a URL and return its visible text (HTML stripped, truncated to ~6000 chars). Use to read article/page content.",
+        "Fetch a URL and return its visible text (max ~6000 chars). Results are cached within this task — re-calling the same URL is free and instant.",
       parameters: {
         type: "object",
         properties: { url: { type: "string" } },
@@ -48,9 +54,52 @@ const TOOLS = [
   {
     type: "function" as const,
     function: {
-      name: "screenshot",
+      name: "extract_structured",
       description:
-        "Take a screenshot of a public URL (via thum.io free service) and return its image URL to show the user.",
+        "Fetch a URL and extract structured JSON matching the provided fields. Use this instead of fetch_page when you know exactly which fields you need — saves tokens. Example fields: ['title','price','description'].",
+      parameters: {
+        type: "object",
+        properties: {
+          url: { type: "string" },
+          fields: { type: "array", items: { type: "string" } },
+        },
+        required: ["url", "fields"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "compare_pages",
+      description:
+        "Fetch multiple URLs in parallel and return a short summary of each. Use to compare products/articles quickly.",
+      parameters: {
+        type: "object",
+        properties: {
+          urls: { type: "array", items: { type: "string" }, maxItems: 5 },
+        },
+        required: ["urls"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "calculate",
+      description:
+        "Evaluate a numeric expression safely (e.g. '(1299*0.9)+150'). Use for any math instead of computing yourself.",
+      parameters: {
+        type: "object",
+        properties: { expression: { type: "string" } },
+        required: ["expression"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "screenshot",
+      description: "Capture a screenshot of a public URL (thum.io).",
       parameters: {
         type: "object",
         properties: { url: { type: "string" } },
@@ -60,9 +109,16 @@ const TOOLS = [
   },
 ];
 
-const SYSTEM = `You are Octopus Agent — an autonomous web task executor.
+const SYSTEM = `Você é Octopus Agent — um executor autônomo de tarefas web. O usuário é o chefe.
 
-You have tools to search the web, fetch pages and capture screenshots. Plan briefly, then call tools in a loop until the user's task is done. Prefer multiple short tool calls over giant ones. Always cite the URLs you used. Reply in Portuguese (Brasil) unless the user writes in another language. At the end, give a clear, concise answer with bullet points and the source links.`;
+Ferramentas: web_search, fetch_page (com cache), extract_structured, compare_pages, calculate, screenshot.
+Princípios:
+- Planeje em 1-2 frases curtas, depois aja.
+- Reaproveite páginas já lidas (estão em cache, custo zero).
+- Prefira extract_structured/compare_pages a múltiplos fetch_page.
+- Use calculate para qualquer conta.
+- Cite as URLs usadas no final.
+- Responda em Português (Brasil), conciso, com bullets.`;
 
 function stripHtml(html: string): string {
   return html
@@ -97,7 +153,6 @@ async function ddgSearch(query: string) {
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null && results.length < 8) {
     let rawUrl = m[1];
-    // DDG wraps with /l/?uddg=
     const uddg = rawUrl.match(/uddg=([^&]+)/);
     if (uddg) rawUrl = decodeURIComponent(uddg[1]);
     results.push({
@@ -109,7 +164,7 @@ async function ddgSearch(query: string) {
   return results;
 }
 
-async function fetchPage(url: string) {
+async function fetchPageRaw(url: string): Promise<string> {
   const res = await fetch(url, {
     headers: {
       "User-Agent":
@@ -128,9 +183,18 @@ async function fetchPage(url: string) {
 }
 
 function screenshotUrl(url: string) {
-  // thum.io free, no key required
   const clean = url.replace(/^https?:\/\//, "");
   return `https://image.thum.io/get/width/1024/crop/768/https://${clean}`;
+}
+
+/** Safe arithmetic evaluator: digits, ops, parens, decimal, spaces. */
+function safeCalc(expr: string): number {
+  if (!/^[\d+\-*/().,\s%]+$/.test(expr)) throw new Error("Expressão inválida");
+  const clean = expr.replace(/,/g, ".").replace(/%/g, "/100");
+  // eslint-disable-next-line no-new-func
+  const v = Function(`"use strict"; return (${clean})`)();
+  if (typeof v !== "number" || !isFinite(v)) throw new Error("Resultado inválido");
+  return v;
 }
 
 async function runOpenAI(apiKey: string, model: string, messages: ChatMessage[]) {
@@ -175,11 +239,28 @@ export const Route = createFileRoute("/api/agent")({
         if (!body?.model || !Array.isArray(body.messages)) {
           return new Response("Bad request", { status: 400 });
         }
+        const maxUsd = body.maxUsd ?? DEFAULT_MAX_USD;
 
         const messages: ChatMessage[] = [
           { role: "system", content: SYSTEM },
           ...body.messages.map((m) => ({ role: m.role, content: m.content })),
         ];
+
+        // Per-task memory: URL -> extracted text
+        const pageCache = new Map<string, string>();
+        let fetchCount = 0;
+
+        const getPage = async (url: string) => {
+          const cached = pageCache.get(url);
+          if (cached !== undefined) return { text: cached, cached: true };
+          if (fetchCount >= MAX_FETCHES) {
+            throw new Error(`Limite de ${MAX_FETCHES} downloads por tarefa atingido`);
+          }
+          fetchCount++;
+          const text = await fetchPageRaw(url);
+          pageCache.set(url, text);
+          return { text, cached: false };
+        };
 
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
@@ -189,8 +270,22 @@ export const Route = createFileRoute("/api/agent")({
             let totalIn = 0;
             let totalOut = 0;
             try {
-              for (let step = 0; step < 10; step++) {
-                send({ type: "step", step });
+              send({ type: "limits", maxUsd, maxSteps: MAX_STEPS, maxFetches: MAX_FETCHES });
+
+              for (let step = 0; step < MAX_STEPS; step++) {
+                // Cost cap check
+                const running = costUSD(getModel(body.model), totalIn, totalOut).total;
+                if (running >= maxUsd) {
+                  send({
+                    type: "done",
+                    message: `(limite de custo atingido: $${running.toFixed(4)} ≥ $${maxUsd.toFixed(4)})`,
+                    usage: { inputTokens: totalIn, outputTokens: totalOut, usd: running },
+                  });
+                  controller.close();
+                  return;
+                }
+
+                send({ type: "step", step, usd: running });
                 const data = await runOpenAI(apiKey, body.model, messages);
                 totalIn += data.usage?.prompt_tokens ?? 0;
                 totalOut += data.usage?.completion_tokens ?? 0;
@@ -206,7 +301,11 @@ export const Route = createFileRoute("/api/agent")({
                   send({
                     type: "done",
                     message: msg.content ?? "",
-                    usage: { inputTokens: totalIn, outputTokens: totalOut, usd: cost.total },
+                    usage: {
+                      inputTokens: totalIn,
+                      outputTokens: totalOut,
+                      usd: cost.total,
+                    },
                   });
                   controller.close();
                   return;
@@ -217,43 +316,98 @@ export const Route = createFileRoute("/api/agent")({
                   let event: Record<string, unknown> = {};
                   try {
                     const args = JSON.parse(call.function.arguments);
-                    if (call.function.name === "web_search") {
+                    const name = call.function.name;
+
+                    if (name === "web_search") {
                       const links = await ddgSearch(String(args.query));
                       toolResult = JSON.stringify(links);
                       event = {
                         type: "action",
-                        tool: "web_search",
+                        tool: name,
                         input: args,
                         ok: true,
                         result: `${links.length} resultados`,
                         links,
                       };
-                    } else if (call.function.name === "fetch_page") {
-                      const text = await fetchPage(String(args.url));
+                    } else if (name === "fetch_page") {
+                      const { text, cached } = await getPage(String(args.url));
                       toolResult = text;
                       event = {
                         type: "action",
-                        tool: "fetch_page",
+                        tool: name,
                         input: args,
                         ok: true,
-                        result: `${text.length} chars extraídos`,
+                        cached,
+                        result: cached
+                          ? `cache (${text.length} chars)`
+                          : `${text.length} chars extraídos`,
                       };
-                    } else if (call.function.name === "screenshot") {
+                    } else if (name === "extract_structured") {
+                      const { text, cached } = await getPage(String(args.url));
+                      const fields = Array.isArray(args.fields) ? args.fields : [];
+                      toolResult = JSON.stringify({
+                        url: args.url,
+                        fields,
+                        page_text: text,
+                        instructions:
+                          "Extraia os campos solicitados a partir de page_text e devolva como JSON.",
+                      });
+                      event = {
+                        type: "action",
+                        tool: name,
+                        input: args,
+                        ok: true,
+                        cached,
+                        result: `campos: ${fields.join(", ")}`,
+                      };
+                    } else if (name === "compare_pages") {
+                      const urls = (args.urls as string[]).slice(0, 5);
+                      const settled = await Promise.allSettled(urls.map(getPage));
+                      const summary = urls.map((u, i) => {
+                        const r = settled[i];
+                        if (r.status === "fulfilled") {
+                          return {
+                            url: u,
+                            cached: r.value.cached,
+                            text: r.value.text.slice(0, 1500),
+                          };
+                        }
+                        return { url: u, error: String(r.reason) };
+                      });
+                      toolResult = JSON.stringify(summary);
+                      event = {
+                        type: "action",
+                        tool: name,
+                        input: args,
+                        ok: true,
+                        result: `${urls.length} páginas comparadas`,
+                      };
+                    } else if (name === "calculate") {
+                      const v = safeCalc(String(args.expression));
+                      toolResult = String(v);
+                      event = {
+                        type: "action",
+                        tool: name,
+                        input: args,
+                        ok: true,
+                        result: `= ${v}`,
+                      };
+                    } else if (name === "screenshot") {
                       const sUrl = screenshotUrl(String(args.url));
                       toolResult = `Screenshot disponível em ${sUrl}`;
                       event = {
                         type: "action",
-                        tool: "screenshot",
+                        tool: name,
                         input: args,
                         ok: true,
                         screenshotUrl: sUrl,
                         result: "captura gerada",
                       };
                     } else {
-                      toolResult = `error: unknown tool ${call.function.name}`;
+                      toolResult = `error: unknown tool ${name}`;
                       event = {
                         type: "action",
-                        tool: call.function.name,
+                        tool: name,
                         input: {},
                         ok: false,
                         error: "unknown tool",
@@ -281,7 +435,11 @@ export const Route = createFileRoute("/api/agent")({
               send({
                 type: "done",
                 message: "(limite de passos atingido)",
-                usage: { inputTokens: totalIn, outputTokens: totalOut, usd: cost.total },
+                usage: {
+                  inputTokens: totalIn,
+                  outputTokens: totalOut,
+                  usd: cost.total,
+                },
               });
             } catch (e) {
               send({ type: "error", message: (e as Error).message });
