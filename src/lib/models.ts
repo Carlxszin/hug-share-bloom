@@ -65,6 +65,19 @@ export const MODELS: ModelInfo[] = [
 
 export const DEFAULT_MODEL = "gpt-5-mini";
 
+// Realtime voice model pricing (USD per 1M tokens)
+export const REALTIME_MODEL = "gpt-realtime";
+export const REALTIME_PRICING = {
+  textIn: 4,
+  textOut: 16,
+  audioIn: 32,
+  audioOut: 64,
+};
+
+// Whisper transcription (USD per minute)
+export const WHISPER_MODEL = "whisper-1";
+export const WHISPER_PRICE_PER_MIN = 0.006;
+
 export function getModel(id: string): ModelInfo {
   return MODELS.find((m) => m.id === id) ?? MODELS[0];
 }
@@ -73,4 +86,17 @@ export function costUSD(model: ModelInfo, inputTokens: number, outputTokens: num
   const input = (inputTokens / 1_000_000) * model.inputPer1M;
   const output = (outputTokens / 1_000_000) * model.outputPer1M;
   return { input, output, total: input + output };
+}
+
+export function realtimeCostUSD(usage: {
+  textIn?: number;
+  textOut?: number;
+  audioIn?: number;
+  audioOut?: number;
+}) {
+  const ti = ((usage.textIn ?? 0) / 1_000_000) * REALTIME_PRICING.textIn;
+  const to = ((usage.textOut ?? 0) / 1_000_000) * REALTIME_PRICING.textOut;
+  const ai = ((usage.audioIn ?? 0) / 1_000_000) * REALTIME_PRICING.audioIn;
+  const ao = ((usage.audioOut ?? 0) / 1_000_000) * REALTIME_PRICING.audioOut;
+  return { textIn: ti, textOut: to, audioIn: ai, audioOut: ao, total: ti + to + ai + ao };
 }

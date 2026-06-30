@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { Copy, Check, User, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,11 +16,21 @@ export function MessageBubble({ message }: { message: Message }) {
   };
 
   return (
-    <div className={cn("group flex gap-3 px-4 py-5", isUser ? "" : "bg-muted/30")}>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      className={cn(
+        "group flex gap-3 px-4 py-5",
+        isUser ? "" : "bg-muted/30",
+      )}
+    >
       <div
         className={cn(
-          "h-8 w-8 shrink-0 rounded-md flex items-center justify-center",
-          isUser ? "bg-secondary" : "bg-primary text-primary-foreground",
+          "h-8 w-8 shrink-0 rounded-md flex items-center justify-center shadow-sm",
+          isUser
+            ? "bg-secondary"
+            : "bg-gradient-to-br from-primary to-primary/70 text-primary-foreground",
         )}
       >
         {isUser ? <User className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
@@ -27,7 +38,7 @@ export function MessageBubble({ message }: { message: Message }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-xs font-medium text-muted-foreground">
-            {isUser ? "Você" : (message.model ?? "Assistente")}
+            {isUser ? "Você" : (message.model ?? "Aurora")}
           </span>
         </div>
         <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
@@ -46,15 +57,16 @@ export function MessageBubble({ message }: { message: Message }) {
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 function Dot({ delay = 0 }: { delay?: number }) {
   return (
-    <span
-      className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-pulse"
-      style={{ animationDelay: `${delay}s` }}
+    <motion.span
+      className="h-1.5 w-1.5 rounded-full bg-muted-foreground inline-block"
+      animate={{ opacity: [0.3, 1, 0.3], y: [0, -2, 0] }}
+      transition={{ duration: 1, repeat: Infinity, delay }}
     />
   );
 }

@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
+import { Phone, Sparkles } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { CallModal } from "@/components/chat/call-modal";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { Composer } from "@/components/chat/composer";
 import { CostBar } from "@/components/chat/cost-bar";
@@ -27,6 +30,7 @@ function ChatPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [rate, setRate] = useState(5.4);
+  const [callOpen, setCallOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -242,15 +246,30 @@ function ChatPage() {
       <main className="flex-1 flex flex-col min-w-0">
         <header className="h-14 border-b flex items-center justify-between px-4 gap-2">
           <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-md bg-primary text-primary-foreground flex items-center justify-center">
+            <motion.div
+              initial={{ scale: 0.6, rotate: -20, opacity: 0 }}
+              animate={{ scale: 1, rotate: 0, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 260, damping: 18 }}
+              className="h-7 w-7 rounded-md bg-gradient-to-br from-primary to-primary/70 text-primary-foreground flex items-center justify-center shadow-sm"
+            >
               <Sparkles className="h-4 w-4" />
-            </div>
-            <h1 className="font-semibold tracking-tight">Aurora Chat</h1>
+            </motion.div>
+            <h1 className="font-semibold tracking-tight bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text">
+              Aurora Chat
+            </h1>
             <Badge variant="outline" className="ml-2 gap-1 text-[10px]">
-              <span className="h-1.5 w-1.5 rounded-full bg-success" /> API online
+              <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" /> API online
             </Badge>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setCallOpen(true)}
+              className="gap-1.5 rounded-full"
+            >
+              <Phone className="h-3.5 w-3.5" /> Ligar
+            </Button>
             <ModelSelector
               value={active.model}
               onChange={(model) =>
@@ -265,7 +284,7 @@ function ChatPage() {
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
           {active.messages.length === 0 ? (
-            <EmptyState />
+            <EmptyState onPick={setInput} />
           ) : (
             <div className="max-w-3xl mx-auto">
               {active.messages.map((m) => (
@@ -283,11 +302,12 @@ function ChatPage() {
           loading={loading}
         />
       </main>
+      <CallModal open={callOpen} onClose={() => setCallOpen(false)} rate={rate} voice="alloy" />
     </div>
   );
 }
 
-function EmptyState() {
+function EmptyState({ onPick }: { onPick: (v: string) => void }) {
   const suggestions = [
     "Explique computação quântica como se eu tivesse 10 anos",
     "Escreva um e-mail formal pedindo aumento",
@@ -296,21 +316,45 @@ function EmptyState() {
   ];
   return (
     <div className="h-full flex flex-col items-center justify-center px-6 py-12 text-center">
-      <div className="h-12 w-12 rounded-xl bg-primary text-primary-foreground flex items-center justify-center mb-4">
-        <Sparkles className="h-6 w-6" />
-      </div>
-      <h2 className="text-2xl font-semibold tracking-tight">Como posso ajudar hoje?</h2>
-      <p className="text-sm text-muted-foreground mt-2 max-w-md">
-        Converse com modelos GPT-5 e acompanhe o custo em USD e Real em tempo real.
-      </p>
+      <motion.div
+        initial={{ scale: 0.6, opacity: 0, rotate: -8 }}
+        animate={{ scale: 1, opacity: 1, rotate: 0 }}
+        transition={{ type: "spring", stiffness: 220, damping: 16 }}
+        className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground flex items-center justify-center mb-4 shadow-lg shadow-primary/30"
+      >
+        <Sparkles className="h-7 w-7" />
+      </motion.div>
+      <motion.h2
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="text-2xl font-semibold tracking-tight"
+      >
+        Como posso ajudar hoje?
+      </motion.h2>
+      <motion.p
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.18 }}
+        className="text-sm text-muted-foreground mt-2 max-w-md"
+      >
+        Converse, envie áudio ou ligue para falar em tempo real. Custos em USD e BRL ao vivo.
+      </motion.p>
       <div className="grid sm:grid-cols-2 gap-2 mt-8 max-w-xl w-full">
-        {suggestions.map((s) => (
-          <div
+        {suggestions.map((s, i) => (
+          <motion.button
             key={s}
-            className="text-left text-sm border rounded-xl p-3 hover:bg-muted/50 transition cursor-default"
+            type="button"
+            onClick={() => onPick(s)}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 + i * 0.06 }}
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            className="text-left text-sm border rounded-xl p-3 hover:bg-muted/50 hover:border-primary/40 transition"
           >
             {s}
-          </div>
+          </motion.button>
         ))}
       </div>
     </div>
