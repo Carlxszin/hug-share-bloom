@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Square, Mic, Loader2 } from "lucide-react";
+import { ArrowUp, Square, Mic, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -39,9 +39,7 @@ export function Composer({
     setRecError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mime = MediaRecorder.isTypeSupported("audio/webm")
-        ? "audio/webm"
-        : "audio/mp4";
+      const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
       const rec = new MediaRecorder(stream, { mimeType: mime });
       chunksRef.current = [];
       rec.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
@@ -82,110 +80,119 @@ export function Composer({
   };
 
   return (
-    <div className="border-t bg-background/80 backdrop-blur-sm p-3">
-      <motion.div
-        layout
-        className="relative max-w-3xl mx-auto rounded-2xl border bg-card shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:border-ring transition"
-      >
-        <Textarea
-          ref={ref}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={transcribing}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              if (!loading && value.trim()) onSubmit();
-            }
-          }}
-          placeholder={
-            transcribing
-              ? "Transcrevendo áudio…"
-              : recording
-                ? "Gravando…  clique no microfone para parar"
-                : "Pergunte qualquer coisa…  (Enter envia, Shift+Enter quebra linha)"
-          }
-          rows={1}
-          className="resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 pr-24 max-h-[200px]"
-        />
-        <div className="absolute right-2 bottom-2 flex items-center gap-1.5">
-          <AnimatePresence mode="popLayout">
-            {recording ? (
-              <motion.div
-                key="recording"
-                initial={{ scale: 0.7, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.7, opacity: 0 }}
-              >
+    <div className="px-4 md:px-8 pb-6 pt-2">
+      <div className="max-w-3xl mx-auto">
+        <motion.div
+          layout
+          className="relative group"
+        >
+          <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-primary/40 to-primary/10 opacity-0 group-focus-within:opacity-100 blur-md transition-opacity duration-500 pointer-events-none" />
+          <div className="relative rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] transition-colors group-focus-within:border-white/20">
+            <Textarea
+              ref={ref}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              disabled={transcribing}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (!loading && value.trim()) onSubmit();
+                }
+              }}
+              placeholder={
+                transcribing
+                  ? "Transcrevendo áudio…"
+                  : recording
+                    ? "Gravando… clique no microfone para parar"
+                    : "Pergunte ao Octopus…"
+              }
+              rows={1}
+              className="resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-5 pt-4 pb-2 text-sm leading-relaxed max-h-[200px] placeholder:text-muted-foreground/70"
+            />
+            <div className="flex items-center justify-between px-3 pb-3 pt-1 border-t border-white/5">
+              <div className="flex items-center gap-1">
+                <AnimatePresence mode="popLayout">
+                  {recording ? (
+                    <motion.div
+                      key="rec"
+                      initial={{ scale: 0.7, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.7, opacity: 0 }}
+                    >
+                      <Button
+                        size="icon"
+                        variant="destructive"
+                        onClick={stopRec}
+                        aria-label="Parar gravação"
+                        className="h-8 w-8 rounded-lg"
+                      >
+                        <motion.span
+                          animate={{ scale: [1, 1.3, 1] }}
+                          transition={{ duration: 1.2, repeat: Infinity }}
+                          className="h-2 w-2 rounded-full bg-white"
+                        />
+                      </Button>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="mic"
+                      initial={{ scale: 0.7, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.7, opacity: 0 }}
+                    >
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={startRec}
+                        disabled={loading || transcribing}
+                        aria-label="Gravar áudio"
+                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5"
+                      >
+                        {transcribing ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Mic className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {loading ? (
                 <Button
                   size="icon"
                   variant="destructive"
-                  onClick={stopRec}
-                  aria-label="Parar gravação"
-                  className="rounded-full"
+                  onClick={onStop}
+                  aria-label="Parar"
+                  className="h-8 w-8 rounded-lg"
                 >
-                  <motion.span
-                    animate={{ scale: [1, 1.3, 1] }}
-                    transition={{ duration: 1.2, repeat: Infinity }}
-                    className="h-2.5 w-2.5 rounded-full bg-white"
-                  />
+                  <Square className="h-3.5 w-3.5" />
                 </Button>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="mic"
-                initial={{ scale: 0.7, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.7, opacity: 0 }}
-              >
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={startRec}
-                  disabled={loading || transcribing}
-                  aria-label="Gravar áudio"
-                  className="rounded-full"
-                >
-                  {transcribing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Mic className="h-4 w-4" />
-                  )}
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {loading ? (
-            <Button
-              size="icon"
-              variant="destructive"
-              onClick={onStop}
-              aria-label="Parar"
-              className="rounded-full"
-            >
-              <Square className="h-4 w-4" />
-            </Button>
+              ) : (
+                <motion.div whileTap={{ scale: 0.92 }}>
+                  <Button
+                    size="icon"
+                    onClick={onSubmit}
+                    disabled={!value.trim() || transcribing}
+                    aria-label="Enviar"
+                    className="h-8 w-8 rounded-lg glow-primary"
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                  </Button>
+                </motion.div>
+              )}
+            </div>
+          </div>
+        </motion.div>
+        <p className="text-[10px] text-muted-foreground/70 text-center mt-3 tracking-wide">
+          {recError ? (
+            <span className="text-destructive">⚠️ {recError}</span>
           ) : (
-            <Button
-              size="icon"
-              onClick={onSubmit}
-              disabled={!value.trim() || transcribing}
-              aria-label="Enviar"
-              className="rounded-full"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+            "IA pode cometer erros. Confira informações importantes."
           )}
-        </div>
-      </motion.div>
-      <p className="text-[10px] text-muted-foreground text-center mt-2">
-        {recError ? (
-          <span className="text-destructive">⚠️ {recError}</span>
-        ) : (
-          "IA pode cometer erros. Confira informações importantes."
-        )}
-      </p>
+        </p>
+      </div>
     </div>
   );
 }
