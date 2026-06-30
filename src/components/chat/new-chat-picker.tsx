@@ -55,6 +55,28 @@ export function NewChatPicker({
                 </div>
               </button>
 
+              <button
+                onClick={() => onPick("agent", "gpt-4o-mini")}
+                className="text-left p-4 rounded-xl border border-success/20 bg-gradient-to-br from-success/[0.05] to-transparent hover:border-success/40 transition group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-success/10 border border-success/20 flex items-center justify-center text-success">
+                    <Bot className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-sm flex items-center gap-1.5">
+                      Agente Executor
+                      <span className="text-[9px] uppercase tracking-wider bg-success/15 text-success px-1.5 py-0.5 rounded-full font-semibold">
+                        novo
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Pesquisa na web, lê páginas e tira screenshots — autônomo, ~R$ 0,01/tarefa.
+                    </p>
+                  </div>
+                </div>
+              </button>
+
               <div className="p-4 rounded-xl border border-primary/20 bg-gradient-to-br from-primary/[0.06] to-transparent">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="h-10 w-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center glow-primary">
