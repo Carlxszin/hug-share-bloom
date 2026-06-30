@@ -35,6 +35,7 @@ function ChatPage() {
   const [callOpen, setCallOpen] = useState(false);
   const [freeCallOpen, setFreeCallOpen] = useState(false);
   const [callPickerOpen, setCallPickerOpen] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
