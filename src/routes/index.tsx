@@ -246,15 +246,30 @@ function ChatPage() {
       <main className="flex-1 flex flex-col min-w-0">
         <header className="h-14 border-b flex items-center justify-between px-4 gap-2">
           <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-md bg-primary text-primary-foreground flex items-center justify-center">
+            <motion.div
+              initial={{ scale: 0.6, rotate: -20, opacity: 0 }}
+              animate={{ scale: 1, rotate: 0, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 260, damping: 18 }}
+              className="h-7 w-7 rounded-md bg-gradient-to-br from-primary to-primary/70 text-primary-foreground flex items-center justify-center shadow-sm"
+            >
               <Sparkles className="h-4 w-4" />
-            </div>
-            <h1 className="font-semibold tracking-tight">Aurora Chat</h1>
+            </motion.div>
+            <h1 className="font-semibold tracking-tight bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text">
+              Aurora Chat
+            </h1>
             <Badge variant="outline" className="ml-2 gap-1 text-[10px]">
-              <span className="h-1.5 w-1.5 rounded-full bg-success" /> API online
+              <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" /> API online
             </Badge>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setCallOpen(true)}
+              className="gap-1.5 rounded-full"
+            >
+              <Phone className="h-3.5 w-3.5" /> Ligar
+            </Button>
             <ModelSelector
               value={active.model}
               onChange={(model) =>
