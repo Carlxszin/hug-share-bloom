@@ -1,4 +1,4 @@
-import { Plus, MessageSquare, Trash2, Pencil, Check, X } from "lucide-react";
+import { Plus, MessageSquare, Trash2, Pencil, Check, X, Code2 } from "lucide-react";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
