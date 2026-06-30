@@ -385,7 +385,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
                 {transcript.slice(-6).map((m, i) => (
                   <div key={i} className="flex gap-2">
                     <span className="text-[10px] uppercase font-medium text-muted-foreground w-12 shrink-0 pt-0.5">
-                      {m.role === "user" ? "Você" : "Aurora"}
+                      {m.role === "user" ? "Você" : "Octopus"}
                     </span>
                     <span className="text-foreground">{m.text}</span>
                   </div>
