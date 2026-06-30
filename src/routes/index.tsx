@@ -33,6 +33,7 @@ function ChatPage() {
   const [rate, setRate] = useState(5.4);
   const [callOpen, setCallOpen] = useState(false);
   const [freeCallOpen, setFreeCallOpen] = useState(false);
+  const [callPickerOpen, setCallPickerOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
