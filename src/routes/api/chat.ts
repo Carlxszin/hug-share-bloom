@@ -26,7 +26,7 @@ export const Route = createFileRoute("/api/chat")({
           body: JSON.stringify({
             model: body.model,
             messages: [
-              { role: "system", content: PERSONA_SYSTEM },
+              { role: "system", content: PERSONA_SYSTEM + (body.systemAddon ? " " + body.systemAddon : "") },
               ...body.messages.filter((m) => m.role !== "system"),
             ],
             stream: true,
