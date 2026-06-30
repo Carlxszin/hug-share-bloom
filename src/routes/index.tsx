@@ -21,7 +21,8 @@ import { detectImagePrompt, enqueueImage } from "@/lib/image-queue";
 import { closeReservedExternalTabIfUnused, openInAppBrowser, reserveExternalTab } from "@/lib/browser-bus";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { IntelligenceButton, IntelligencePanel } from "@/components/chat/intelligence-panel";
-import { detectIntent, logTurn } from "@/lib/metrics";
+import { detectIntent, logTurn, patchTurn } from "@/lib/metrics";
+import { resolveModel } from "@/lib/router";
 import {
   loadConversations,
   logCost,
@@ -190,11 +191,14 @@ function ChatPage() {
       content: text,
       createdAt: Date.now(),
     };
+    const intent = detectIntent(text);
+    const { id: routedModel, decision } = resolveModel(active.model, intent);
+
     const assistantMsg: Message = {
       id: crypto.randomUUID(),
       role: "assistant",
       content: "",
-      model: active.model,
+      model: routedModel,
       createdAt: Date.now(),
     };
 
@@ -218,7 +222,7 @@ function ChatPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: active.model,
+          model: routedModel,
           messages: baseMessages.map((m) => ({ role: m.role, content: m.content })),
         }),
         signal: controller.signal,
@@ -275,7 +279,7 @@ function ChatPage() {
 
       const inTok = usage?.prompt_tokens ?? 0;
       const outTok = usage?.completion_tokens ?? 0;
-      const cost = costUSD(getModel(active.model), inTok, outTok);
+      const cost = costUSD(getModel(routedModel), inTok, outTok);
       updateConversation(active.id, (c) => ({
         ...c,
         messages: c.messages.map((m) =>
@@ -286,9 +290,9 @@ function ChatPage() {
         updatedAt: Date.now(),
       }));
       logCost({ usd: cost.total, inputTokens: inTok, outputTokens: outTok });
-      logTurn({
-        intent: detectIntent(text),
-        model: active.model,
+      const turnId = logTurn({
+        intent,
+        model: routedModel,
         mode: "paid",
         tokensIn: inTok,
         tokensOut: outTok,
@@ -299,6 +303,21 @@ function ChatPage() {
         retryCount: 0,
         truncated: false,
       });
+      // Background self-critique (non-blocking) — populates IQ score.
+      if (assembled) {
+        void fetch("/api/critique", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userPrompt: text, assistantReply: assembled }),
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data && typeof data.score === "number") {
+              patchTurn(turnId, { selfScore: data.score });
+            }
+          })
+          .catch(() => {});
+      }
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         updateConversation(active.id, (c) => ({
