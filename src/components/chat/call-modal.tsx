@@ -76,7 +76,7 @@ export function CallModal({
         const url = String(args.url ?? "");
         if (!url) return JSON.stringify({ error: "url ausente" });
         try {
-          window.open(url, "_blank", "noopener,noreferrer");
+          openInAppBrowser(url);
           pushFeed({ kind: "open", url });
           return JSON.stringify({ ok: true, opened: url });
         } catch (e) {

@@ -170,7 +170,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
         if (opens && opens.length) {
           for (const o of opens) {
             try {
-              window.open(o.url, "_blank", "noopener,noreferrer");
+              openInAppBrowser(o.url);
             } catch {
               /* popup blocker */
             }
