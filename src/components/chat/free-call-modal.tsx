@@ -174,31 +174,18 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
             } catch {
               /* popup blocker */
             }
+            setFeed((p) => [...p, { kind: "open", url: o.url }]);
           }
         }
 
-        // Surface searches in transcript
         if (searches && searches.length) {
           for (const s of searches) {
-            setTranscript((p) => [
-              ...p,
-              { role: "assistant", text: `🔍 Pesquisei: "${s.query}" (${s.count} resultados)` },
-            ]);
+            setFeed((p) => [...p, { kind: "search", query: s.query, count: s.count }]);
           }
-        }
-        if (opens && opens.length) {
-          setTranscript((p) => [
-            ...p,
-            {
-              role: "assistant",
-              text: `🌐 Abri ${opens.length} aba${opens.length > 1 ? "s" : ""}: ${opens
-                .map((o) => o.url)
-                .join(", ")}`,
-            },
-          ]);
         }
 
         setTranscript((p) => [...p, { role: "assistant", text: reply }]);
+        setFeed((p) => [...p, { kind: "assistant", text: reply }]);
 
         setActive("tts");
         setPhase("speaking");
