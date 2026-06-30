@@ -670,6 +670,7 @@ function ChatPage() {
             >
               <Phone className="h-4 w-4" />
             </Button>
+            <IntelligenceButton onClick={() => setIqOpen(true)} />
             <ThemeToggle />
           </div>
         </header>
