@@ -107,7 +107,36 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "open_url",
+      description:
+        "Open a URL in a new browser tab on the user's machine. Use when the user asks you to 'abrir', 'mostrar', 'tocar' (música → YouTube), or navegar até um site. Always prefer this over only describing a link.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "Full https URL to open." },
+          reason: { type: "string" },
+        },
+        required: ["url"],
+      },
+    },
+  },
 ];
+
+const SYSTEM = `Você é Octopus Agent — um executor autônomo de tarefas web. O usuário é o chefe.
+
+Ferramentas: web_search, fetch_page (com cache), extract_structured, compare_pages, calculate, screenshot, open_url.
+Princípios:
+- AJA, não só descreva. Se o chefe pede algo da web, USE web_search/fetch_page imediatamente.
+- Se o pedido envolve abrir, mostrar, tocar, navegar, ouvir música, ver vídeo → SEMPRE chame open_url com a URL apropriada (YouTube para músicas/vídeos, site oficial, etc).
+- Pedidos nativos viram equivalentes web: "abre o Chrome" → google.com; "toca X no Spotify" → https://open.spotify.com/search/X; música/clipe → https://www.youtube.com/results?search_query=...
+- Reaproveite páginas já lidas (cache, custo zero).
+- Prefira extract_structured/compare_pages a múltiplos fetch_page.
+- Use calculate para qualquer conta.
+- Cite as URLs usadas no final.
+- Responda em Português (Brasil), conciso, com bullets.`;
 
 const SYSTEM = `Você é Octopus Agent — um executor autônomo de tarefas web. O usuário é o chefe.
 
