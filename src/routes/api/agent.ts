@@ -422,7 +422,17 @@ export const Route = createFileRoute("/api/agent")({
                         screenshotUrl: sUrl,
                         result: "captura gerada",
                       };
-                    } else {
+                    } else if (name === "open_url") {
+                      const u = String(args.url);
+                      toolResult = `Aba aberta: ${u}`;
+                      event = {
+                        type: "action",
+                        tool: name,
+                        input: args,
+                        ok: true,
+                        openedUrl: u,
+                        result: args.reason ? String(args.reason) : "aba aberta",
+                      };
                       toolResult = `error: unknown tool ${name}`;
                       event = {
                         type: "action",
