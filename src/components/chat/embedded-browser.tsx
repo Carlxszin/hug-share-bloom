@@ -59,8 +59,17 @@ export function EmbeddedBrowser({
     const offCmd = subscribeBrowserCommands((cmd) => {
       const iframe = iframeRef.current;
       if (cmd === "close") {
+        try { externalTabRef.current?.close(); } catch { /* ignore */ }
+        externalTabRef.current = null;
+        if (iframe?.contentWindow) {
+          iframe.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func: "pauseVideo", args: [] }),
+            "*",
+          );
+        }
         setStack([]);
         setIdx(-1);
+        setBlocked(false);
         setBlocked(false);
       } else if (cmd === "pause" || cmd === "play") {
         // YouTube IFrame API postMessage
