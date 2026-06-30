@@ -47,7 +47,8 @@ export function Markdown({
                 </code>
               );
             }
-            const lang = (className || "").replace("language-", "").toLowerCase();
+            const match = /language-([\w-]+)/.exec(className || "");
+            const lang = (match?.[1] || "").toLowerCase();
             const raw = extractText(children);
             return (
               <CodeBlock lang={lang} raw={raw} onPreviewHtml={onPreviewHtml}>
