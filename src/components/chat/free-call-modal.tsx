@@ -232,20 +232,36 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
     return rec;
   }, []);
 
-  const start = useCallback(() => {
+  const start = useCallback(async () => {
     setError(null);
     const rec = buildRecognition();
     if (!rec) return;
     recRef.current = rec;
     runningRef.current = true;
+
+    // 1) Octopus fala primeiro, tratando o usuário como chefe
+    const greeting = "Olá, chefe! Octopus na escuta. Como posso te ajudar?";
+    setTranscript((p) => [...p, { role: "assistant", text: greeting }]);
+    setActive("tts");
+    setPhase("speaking");
+    await speak(greeting);
+
+    // 2) Depois libera o microfone
+    if (!runningRef.current) return;
     setActive("stt");
     setPhase("listening");
-    try { rec.start(); } catch { /* already started */ }
-  }, [buildRecognition]);
+    if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+    restartTimerRef.current = setTimeout(() => startRecognition(), 350);
+  }, [buildRecognition, speak, startRecognition]);
 
   const stop = useCallback(() => {
     runningRef.current = false;
+    speakingRef.current = false;
     phaseRef.current = "idle";
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
     try { recRef.current?.abort(); } catch { /* noop */ }
     recRef.current = null;
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
