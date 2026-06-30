@@ -658,8 +658,8 @@ function ChatPage() {
             </div>
           </div>
         ) : isAgent ? (
-          <div className="relative flex-1 min-h-0 flex z-10">
-            <div className="flex flex-col flex-1 min-w-0 border-r border-white/5">
+          <div className="relative flex-1 min-h-0 flex flex-col lg:flex-row z-10">
+            <div className="flex flex-col flex-1 min-w-0 lg:border-r border-white/5 min-h-0">
               <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
                 {active.messages.length === 0 ? (
                   <AgentEmpty onPick={setInput} />
@@ -680,8 +680,11 @@ function ChatPage() {
                 onCall={() => setCallPickerOpen(true)}
               />
             </div>
-            <div className="w-[40%] min-w-[320px] max-w-[480px]">
-              <AgentView steps={agentSteps} streaming={loading} />
+            <div className="w-full lg:w-[44%] lg:min-w-[360px] lg:max-w-[560px] flex flex-col gap-2 p-2 border-t lg:border-t-0 border-white/5 min-h-0">
+              <div className="lg:max-h-[45%] overflow-hidden">
+                <AgentView steps={agentSteps} streaming={loading} />
+              </div>
+              <EmbeddedBrowser className="flex-1 min-h-[320px]" />
             </div>
           </div>
         ) : (
