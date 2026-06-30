@@ -114,7 +114,7 @@ export function CallModal({
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      const sdpRes = await fetch("https://api.openai.com/v1/realtime?model=gpt-realtime", {
+      const sdpRes = await fetch("https://api.openai.com/v1/realtime/calls?model=gpt-realtime", {
         method: "POST",
         body: offer.sdp,
         headers: {
