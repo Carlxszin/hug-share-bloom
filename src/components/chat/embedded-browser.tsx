@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   clearHistory,
+  closeExternalTab,
   loadHistory,
   openExternalTab,
   subscribeBrowserBus,
@@ -276,6 +277,7 @@ export function EmbeddedBrowser({
                     size="sm"
                     variant="outline"
                     onClick={() => {
+                      closeExternalTab();
                       setStack([]); setIdx(-1); setBlocked(false);
                     }}
                     className="gap-2"
