@@ -476,7 +476,14 @@ function ChatPage() {
               />
             </div>
             <div className="flex-1 min-w-0">
-              <BuilderView files={active.files ?? {}} onPreviewExternal={setPreviewHtml} />
+              <BuilderView
+                files={active.files ?? {}}
+                onPreviewExternal={setPreviewHtml}
+                activity={activity}
+                focusFile={focusFile}
+                streaming={loading}
+              />
+
             </div>
           </div>
         ) : (
