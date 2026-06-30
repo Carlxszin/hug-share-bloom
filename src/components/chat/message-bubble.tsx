@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Copy, Check, User, Package } from "lucide-react";
+import { Copy, Check, User, Package, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { Message } from "@/lib/storage";
 import { Markdown } from "./markdown";
@@ -9,9 +14,11 @@ import { extractCodeBlocks, zipMarkdownProject } from "@/lib/download";
 
 export function MessageBubble({
   message,
+  rate = 5.4,
   onPreviewHtml,
 }: {
   message: Message;
+  rate?: number;
   onPreviewHtml?: (html: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -28,6 +35,12 @@ export function MessageBubble({
     ["html", "css", "js", "javascript", "ts", "typescript", "jsx", "tsx", "json"].includes(b.lang),
   ).length;
   const showZip = codeFileCount >= 2;
+
+  const hasMeta =
+    !isUser &&
+    (typeof message.costUSD === "number" ||
+      (message.inputTokens ?? 0) > 0 ||
+      (message.edits && message.edits.length > 0));
 
   return (
     <motion.div
@@ -55,6 +68,66 @@ export function MessageBubble({
             <span className="text-[10px] font-mono text-muted-foreground/60">
               · {message.model}
             </span>
+          )}
+          {hasMeta && (
+            <div className="ml-auto">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    aria-label="Detalhes da mensagem"
+                    className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-white/[0.06] transition"
+                  >
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72 p-3 space-y-2.5">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Custos
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <Stat label="USD" value={`$ ${(message.costUSD ?? 0).toFixed(5)}`} />
+                    <Stat label="BRL" value={`R$ ${((message.costUSD ?? 0) * rate).toFixed(4)}`} />
+                    <Stat label="Tokens in" value={`${message.inputTokens ?? 0}`} />
+                    <Stat label="Tokens out" value={`${message.outputTokens ?? 0}`} />
+                  </div>
+                  {message.edits && message.edits.length > 0 && (
+                    <>
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground pt-1">
+                        Edições ({message.edits.length})
+                      </div>
+                      <div className="max-h-44 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
+                        {message.edits.map((e, i) => {
+                          const Icon =
+                            e.tool === "delete" ? Trash2 : e.tool === "edit" ? Pencil : Plus;
+                          const color =
+                            e.ok === false
+                              ? "text-destructive"
+                              : e.tool === "delete"
+                                ? "text-red-400"
+                                : e.tool === "edit"
+                                  ? "text-amber-400"
+                                  : "text-emerald-400";
+                          return (
+                            <div
+                              key={i}
+                              className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground"
+                            >
+                              <Icon className={cn("h-3 w-3 shrink-0", color)} />
+                              <span className="truncate">{e.path}</span>
+                              {e.line ? (
+                                <span className="ml-auto text-[10px] text-muted-foreground/70">
+                                  L{e.line}
+                                </span>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           )}
         </div>
         {message.content ? (
@@ -95,6 +168,15 @@ export function MessageBubble({
         )}
       </div>
     </motion.div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-white/5 bg-white/[0.02] px-2 py-1.5">
+      <div className="text-[9px] uppercase tracking-wider text-muted-foreground/70">{label}</div>
+      <div className="font-mono text-[11px] text-foreground/90 truncate">{value}</div>
+    </div>
   );
 }
 
