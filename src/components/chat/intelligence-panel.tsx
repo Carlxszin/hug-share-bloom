@@ -202,6 +202,39 @@ export function IntelligencePanel({ open, onClose }: { open: boolean; onClose: (
                 </div>
               )}
 
+              {tab === "variants" && (
+                <div className="space-y-3">
+                  {bestVariant && bestVariant.count >= 3 && (
+                    <div className="text-xs px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary-foreground/90">
+                      🏆 Vencedora atual: <span className="font-semibold">{bestVariant.label}</span> · score {(bestVariant.score * 100).toFixed(0)}
+                    </div>
+                  )}
+                  <div className="grid gap-2">
+                    {variantStats
+                      .sort((a, b) => b.score - a.score)
+                      .map((v) => (
+                        <div key={v.id} className="px-3 py-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium text-sm">{v.label}</div>
+                            <div className="text-xs text-muted-foreground tabular-nums">{v.count}× usos</div>
+                          </div>
+                          <div className="mt-1.5 flex items-center gap-4 text-xs text-muted-foreground tabular-nums">
+                            <span>👍 {Math.round(v.satisfaction * 100)}%</span>
+                            <span>🧠 {Math.round(v.avgSelfScore * 100)}%</span>
+                            <span>⚡ {(v.avgLatencyMs / 1000).toFixed(1)}s</span>
+                            <span>R$ {v.avgCostBRL.toFixed(4)}</span>
+                            <span className="ml-auto text-foreground font-semibold">score {(v.score * 100).toFixed(0)}</span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    O Octopus testa estas variantes do system prompt (epsilon-greedy 20% exploração) e converge para a melhor por satisfação + self-score.
+                  </div>
+                </div>
+              )}
+
+
               {tab === "raw" && (
                 <div className="space-y-1.5 font-mono text-[11px]">
                   {recent.map((m) => (
