@@ -278,6 +278,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
     // 1) Octopus fala primeiro, tratando o usuário como chefe
     const greeting = "Olá, chefe! Octopus na escuta. Como posso te ajudar?";
     setTranscript((p) => [...p, { role: "assistant", text: greeting }]);
+    setFeed((p) => [...p, { kind: "assistant", text: greeting }]);
     setActive("tts");
     setPhase("speaking");
     await speak(greeting);
