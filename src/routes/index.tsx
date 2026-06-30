@@ -304,7 +304,7 @@ function ChatPage() {
         truncated: false,
       });
       // Background self-critique (non-blocking) — populates IQ score.
-      if (assembled && decision.reason !== "explicit-skip") {
+      if (assembled) {
         void fetch("/api/critique", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
