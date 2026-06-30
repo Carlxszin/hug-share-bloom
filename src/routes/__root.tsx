@@ -83,9 +83,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Aurora Chat — Assistente de IA com custo em BRL" },
+      { title: "Octopus — Assistente de IA com custo em BRL" },
       { name: "description", content: "Plataforma de chat com modelos GPT-5 da OpenAI, streaming em tempo real e monitoramento de custos em USD e Real." },
-      { property: "og:title", content: "Aurora Chat" },
+      { property: "og:title", content: "Octopus" },
       { property: "og:description", content: "Chat com IA e controle de gastos em tempo real." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

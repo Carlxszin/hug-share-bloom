@@ -231,7 +231,7 @@ export function CallModal({
                     A
                   </div>
                 </motion.div>
-                <h2 className="mt-5 text-xl font-semibold tracking-tight">Aurora</h2>
+                <h2 className="mt-5 text-xl font-semibold tracking-tight">Octopus</h2>
                 <p className="text-sm text-muted-foreground mt-1">
                   {status === "idle" && "Pronto para conversar por voz"}
                   {status === "connecting" && "Conectando…"}
@@ -261,7 +261,7 @@ export function CallModal({
                 {transcript.slice(-6).map((m, i) => (
                   <div key={i} className="flex gap-2">
                     <span className="text-[10px] uppercase font-medium text-muted-foreground w-12 shrink-0 pt-0.5">
-                      {m.role === "user" ? "Você" : "Aurora"}
+                      {m.role === "user" ? "Você" : "Octopus"}
                     </span>
                     <span className="text-foreground">{m.text}</span>
                   </div>

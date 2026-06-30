@@ -38,7 +38,7 @@ export function MessageBubble({ message }: { message: Message }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-xs font-medium text-muted-foreground">
-            {isUser ? "Você" : (message.model ?? "Aurora")}
+            {isUser ? "Você" : (message.model ?? "Octopus")}
           </span>
         </div>
         <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">

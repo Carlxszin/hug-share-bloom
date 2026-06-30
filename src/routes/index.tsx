@@ -257,7 +257,7 @@ function ChatPage() {
               <Sparkles className="h-4 w-4" />
             </motion.div>
             <h1 className="font-semibold tracking-tight bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text">
-              Aurora Chat
+              Octopus
             </h1>
             <Badge variant="outline" className="ml-2 gap-1 text-[10px]">
               <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" /> API online
