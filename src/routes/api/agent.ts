@@ -20,6 +20,8 @@ type Body = {
   maxUsd?: number;
 };
 
+type LinkResult = { title: string; url: string; snippet?: string };
+
 const MAX_STEPS = 12;
 const MAX_FETCHES = 8;
 const DEFAULT_MAX_USD = 0.1;
@@ -138,6 +140,11 @@ Princípios:
 - Cite as URLs usadas no final.
 - Responda em Português (Brasil), conciso, com bullets.`;
 
+const MEDIA_ACTION_RE =
+  /\b(toca|toque|coloca|coloque|bota|bote|reproduz|reproduza|abre|abra|abrir|mostra|mostre)\b/i;
+const MEDIA_TARGET_RE = /\b(m[uú]sica|som|faixa|v[ií]deo|clipe|youtube|yt|can[cç][aã]o)\b/i;
+const GENERIC_OPEN_VIDEO_RE = /\b(abre|abra|abrir|mostra|mostre)\b.*\b(v[ií]deo|clipe|isso|ele)\b/i;
+
 
 function stripHtml(html: string): string {
   return html
@@ -153,6 +160,47 @@ function stripHtml(html: string): string {
     .replace(/&#39;/g, "'")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function decodeText(value: string): string {
+  try {
+    return stripHtml(JSON.parse(`"${value}"`));
+  } catch {
+    return stripHtml(value.replace(/\\u0026/g, "&").replace(/\\"/g, '"'));
+  }
+}
+
+function cleanMediaQuery(text: string): string {
+  return text
+    .replace(/\b(octopus|chefe|por favor|pfv|please)\b/gi, " ")
+    .replace(/\b(toca|toque|coloca|coloque|bota|bote|reproduz|reproduza|abre|abra|abrir|mostra|mostre|procura|procure|pesquisa|pesquise)\b/gi, " ")
+    .replace(/\b(a|o|um|uma|essa|esse|isso|ele|ela|v[ií]deo|clipe|m[uú]sica|som|faixa|youtube|yt|pra mim|para mim|agora)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isMediaRequest(text: string): boolean {
+  return MEDIA_ACTION_RE.test(text) && (MEDIA_TARGET_RE.test(text) || /\b(toca|toque|coloca|coloque|bota|bote|reproduz|reproduza)\b/i.test(text));
+}
+
+function resolveMediaQuery(messages: Body["messages"]): string | null {
+  const userMessages = messages.filter((m) => m.role === "user" && m.content.trim());
+  const latest = userMessages.at(-1)?.content ?? "";
+  const latestQuery = cleanMediaQuery(latest);
+
+  if (isMediaRequest(latest) && latestQuery.length >= 3 && !GENERIC_OPEN_VIDEO_RE.test(latest)) {
+    return latestQuery;
+  }
+
+  if (GENERIC_OPEN_VIDEO_RE.test(latest) || /\b(abre|abra|abrir)\b/i.test(latest)) {
+    for (let i = userMessages.length - 2; i >= 0; i--) {
+      const previous = userMessages[i].content;
+      const previousQuery = cleanMediaQuery(previous);
+      if (isMediaRequest(previous) && previousQuery.length >= 3) return previousQuery;
+    }
+  }
+
+  return null;
 }
 
 async function ddgSearch(query: string) {
@@ -181,6 +229,55 @@ async function ddgSearch(query: string) {
     });
   }
   return results;
+}
+
+async function youtubeSearch(query: string): Promise<LinkResult[]> {
+  const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+  const res = await fetch(searchUrl, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+      "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+    },
+  });
+  if (!res.ok) throw new Error(`YouTube ${res.status}`);
+  const html = await res.text();
+  const results: LinkResult[] = [];
+  const seen = new Set<string>();
+  const re = /"videoRenderer":\{"videoId":"([A-Za-z0-9_-]{11})"/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = re.exec(html)) !== null && results.length < 6) {
+    const id = match[1];
+    if (seen.has(id)) continue;
+    seen.add(id);
+
+    const chunk = html.slice(match.index, match.index + 5000);
+    const titleMatch = chunk.match(/"title":\{"runs":\[\{"text":"([\s\S]*?)"\}\]/) ??
+      chunk.match(/"title":\{"simpleText":"([\s\S]*?)"\}/);
+    const channelMatch = chunk.match(/"ownerText":\{"runs":\[\{"text":"([\s\S]*?)"/) ??
+      chunk.match(/"shortBylineText":\{"runs":\[\{"text":"([\s\S]*?)"/);
+    const title = titleMatch ? decodeText(titleMatch[1]) : `Vídeo do YouTube ${id}`;
+    const channel = channelMatch ? decodeText(channelMatch[1]) : "YouTube";
+
+    results.push({
+      title,
+      url: `https://www.youtube.com/watch?v=${id}`,
+      snippet: channel,
+    });
+  }
+
+  if (results.length > 0) return results;
+  return ddgSearch(`site:youtube.com/watch ${query}`);
+}
+
+function ndjsonResponse(stream: ReadableStream<Uint8Array>) {
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache",
+    },
+  });
 }
 
 async function fetchPageRaw(url: string): Promise<string> {
@@ -259,6 +356,55 @@ export const Route = createFileRoute("/api/agent")({
           return new Response("Bad request", { status: 400 });
         }
         const maxUsd = body.maxUsd ?? DEFAULT_MAX_USD;
+
+        const directMediaQuery = resolveMediaQuery(body.messages);
+        if (directMediaQuery) {
+          const encoder = new TextEncoder();
+          const stream = new ReadableStream({
+            async start(controller) {
+              const send = (obj: unknown) =>
+                controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+              try {
+                send({ type: "limits", maxUsd, maxSteps: MAX_STEPS, maxFetches: MAX_FETCHES });
+                const links = await youtubeSearch(directMediaQuery);
+                send({
+                  type: "action",
+                  tool: "web_search",
+                  input: { query: `YouTube ${directMediaQuery}` },
+                  ok: true,
+                  result: `${links.length} vídeos encontrados`,
+                  links,
+                });
+
+                const best = links[0] ?? {
+                  title: `Busca no YouTube: ${directMediaQuery}`,
+                  url: `https://www.youtube.com/results?search_query=${encodeURIComponent(directMediaQuery)}`,
+                  snippet: "Resultados do YouTube",
+                };
+
+                send({
+                  type: "action",
+                  tool: "open_url",
+                  input: { url: best.url, reason: best.title },
+                  ok: true,
+                  openedUrl: best.url,
+                  result: best.title,
+                });
+                send({
+                  type: "done",
+                  message: `Pronto, chefe — abri no YouTube: ${best.title}\n${best.url}`,
+                  usage: { inputTokens: 0, outputTokens: 0, usd: 0 },
+                });
+              } catch (e) {
+                send({ type: "error", message: (e as Error).message });
+              } finally {
+                controller.close();
+              }
+            },
+          });
+
+          return ndjsonResponse(stream);
+        }
 
         const messages: ChatMessage[] = [
           { role: "system", content: SYSTEM },
@@ -479,12 +625,7 @@ export const Route = createFileRoute("/api/agent")({
           },
         });
 
-        return new Response(stream, {
-          headers: {
-            "Content-Type": "application/x-ndjson; charset=utf-8",
-            "Cache-Control": "no-cache",
-          },
-        });
+        return ndjsonResponse(stream);
       },
     },
   },

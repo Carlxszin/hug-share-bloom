@@ -45,6 +45,24 @@ export type BuilderActivity = {
   ts: number;
 };
 
+const AGENT_BROWSER_ACTION_RE =
+  /\b(abra|abre|abrir|abrindo|mostra|mostre|mostrar|toca|toque|tocar|coloca|coloque|botar|bota|bote|reproduz|reproduza|navega|navegue)\b/i;
+
+function prepareAgentTab(text: string) {
+  if (typeof window === "undefined" || !AGENT_BROWSER_ACTION_RE.test(text)) return null;
+  const tab = window.open("about:blank", "_blank");
+  if (!tab) return null;
+  try {
+    tab.opener = null;
+    tab.document.title = "Octopus abrindo…";
+    tab.document.body.innerHTML =
+      '<div style="min-height:100vh;display:grid;place-items:center;background:#0b0b0c;color:#f97316;font:16px system-ui">Octopus está abrindo, chefe…</div>';
+  } catch {
+    /* cross-browser guard */
+  }
+  return tab;
+}
+
 function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string>("");
@@ -441,6 +459,7 @@ function ChatPage() {
     };
     const baseMessages = [...active.messages, userMsg];
     const isFirst = active.messages.length === 0;
+    let preparedTab = prepareAgentTab(text);
     updateConversation(active.id, (c) => ({
       ...c,
       title: isFirst ? text.slice(0, 48) : c.title,
@@ -509,7 +528,12 @@ function ChatPage() {
             };
             if (step.openedUrl) {
               try {
-                window.open(step.openedUrl, "_blank", "noopener,noreferrer");
+                if (preparedTab && !preparedTab.closed) {
+                  preparedTab.location.href = step.openedUrl;
+                  preparedTab = null;
+                } else {
+                  window.open(step.openedUrl, "_blank", "noopener,noreferrer");
+                }
               } catch {
                 /* popup blocked */
               }
@@ -555,6 +579,11 @@ function ChatPage() {
         }));
       }
     } finally {
+      try {
+        if (preparedTab && !preparedTab.closed) preparedTab.close();
+      } catch {
+        /* ignore */
+      }
       setLoading(false);
       abortRef.current = null;
     }
