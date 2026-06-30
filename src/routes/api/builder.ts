@@ -19,11 +19,6 @@ type Body = {
   files: Record<string, string>;
 };
 
-type Action =
-  | { tool: "write"; path: string; content: string }
-  | { tool: "edit"; path: string; old: string; new: string; ok: boolean; error?: string }
-  | { tool: "delete"; path: string };
-
 const TOOLS = [
   {
     type: "function" as const,
@@ -81,7 +76,7 @@ WORKSPACE RULES:
 - Use \`write_file\` only to CREATE a new file or when the change touches >70% of the file.
 - The main entry MUST be \`index.html\`. CSS/JS in separate files (\`styles.css\`, \`script.js\`) when reasonable.
 - Use modern, beautiful design by default: semantic HTML, responsive CSS, subtle animations.
-- After all tool calls, reply with a SHORT summary (1-3 sentences) of what you changed. Do not paste code into the chat — the user sees the live preview.`;
+- After all tool calls, reply with a SHORT summary (1-3 sentences) of what you changed.`;
 
 async function runOpenAI(apiKey: string, model: string, messages: ChatMessage[]) {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -139,113 +134,135 @@ export const Route = createFileRoute("/api/builder")({
         }
 
         const files: Record<string, string> = { ...(body.files ?? {}) };
-        const actions: Action[] = [];
-
         const sysWithSnapshot = `${SYSTEM}\n\n--- CURRENT WORKSPACE ---\n${snapshot(files)}`;
         const messages: ChatMessage[] = [
           { role: "system", content: sysWithSnapshot },
           ...body.messages.map((m) => ({ role: m.role, content: m.content })),
         ];
 
-        let totalIn = 0;
-        let totalOut = 0;
-        let finalText = "";
-
-        for (let step = 0; step < 8; step++) {
-          const data = await runOpenAI(apiKey, body.model, messages);
-          totalIn += data.usage?.prompt_tokens ?? 0;
-          totalOut += data.usage?.completion_tokens ?? 0;
-          const msg = data.choices[0].message;
-          messages.push({
-            role: "assistant",
-            content: msg.content,
-            tool_calls: msg.tool_calls,
-          });
-
-          if (!msg.tool_calls || msg.tool_calls.length === 0) {
-            finalText = msg.content ?? "";
-            break;
-          }
-
-          for (const call of msg.tool_calls) {
-            let result = "ok";
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          async start(controller) {
+            const send = (obj: unknown) =>
+              controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+            let totalIn = 0;
+            let totalOut = 0;
             try {
-              const args = JSON.parse(call.function.arguments);
-              if (call.function.name === "write_file") {
-                files[args.path] = args.content;
-                actions.push({ tool: "write", path: args.path, content: args.content });
-              } else if (call.function.name === "edit_file") {
-                const cur = files[args.path];
-                if (cur === undefined) {
-                  result = `error: file '${args.path}' not found`;
-                  actions.push({
-                    tool: "edit",
-                    path: args.path,
-                    old: args.old_string,
-                    new: args.new_string,
-                    ok: false,
-                    error: "not found",
-                  });
-                } else {
-                  const occurrences = cur.split(args.old_string).length - 1;
-                  if (occurrences === 0) {
-                    result = "error: old_string not found in file";
-                    actions.push({
-                      tool: "edit",
-                      path: args.path,
-                      old: args.old_string,
-                      new: args.new_string,
-                      ok: false,
-                      error: "not found",
-                    });
-                  } else if (occurrences > 1) {
-                    result = `error: old_string appears ${occurrences} times; make it unique`;
-                    actions.push({
-                      tool: "edit",
-                      path: args.path,
-                      old: args.old_string,
-                      new: args.new_string,
-                      ok: false,
-                      error: "ambiguous",
-                    });
-                  } else {
-                    files[args.path] = cur.replace(args.old_string, args.new_string);
-                    actions.push({
-                      tool: "edit",
-                      path: args.path,
-                      old: args.old_string,
-                      new: args.new_string,
-                      ok: true,
-                    });
-                  }
-                }
-              } else if (call.function.name === "delete_file") {
-                delete files[args.path];
-                actions.push({ tool: "delete", path: args.path });
-              } else {
-                result = `error: unknown tool ${call.function.name}`;
-              }
-            } catch (e) {
-              result = `error: ${(e as Error).message}`;
-            }
-            messages.push({
-              role: "tool",
-              tool_call_id: call.id,
-              content: result,
-            });
-          }
-        }
+              for (let step = 0; step < 8; step++) {
+                send({ type: "step", step });
+                const data = await runOpenAI(apiKey, body.model, messages);
+                totalIn += data.usage?.prompt_tokens ?? 0;
+                totalOut += data.usage?.completion_tokens ?? 0;
+                const msg = data.choices[0].message;
+                messages.push({
+                  role: "assistant",
+                  content: msg.content,
+                  tool_calls: msg.tool_calls,
+                });
 
-        const cost = costUSD(getModel(body.model), totalIn, totalOut);
-        return Response.json({
-          message: finalText,
-          files,
-          actions: actions.map((a) => ({
-            tool: a.tool,
-            path: a.path,
-            ...("ok" in a ? { ok: a.ok, error: a.error } : {}),
-          })),
-          usage: { inputTokens: totalIn, outputTokens: totalOut, usd: cost.total },
+                if (!msg.tool_calls || msg.tool_calls.length === 0) {
+                  const cost = costUSD(getModel(body.model), totalIn, totalOut);
+                  send({
+                    type: "done",
+                    message: msg.content ?? "",
+                    files,
+                    usage: { inputTokens: totalIn, outputTokens: totalOut, usd: cost.total },
+                  });
+                  controller.close();
+                  return;
+                }
+
+                for (const call of msg.tool_calls) {
+                  let result = "ok";
+                  let event: Record<string, unknown> = {};
+                  try {
+                    const args = JSON.parse(call.function.arguments);
+                    if (call.function.name === "write_file") {
+                      const isNew = files[args.path] === undefined;
+                      files[args.path] = args.content;
+                      event = {
+                        type: "action",
+                        tool: "write",
+                        path: args.path,
+                        isNew,
+                        preview: args.content.slice(0, 240),
+                        size: args.content.length,
+                      };
+                    } else if (call.function.name === "edit_file") {
+                      const cur = files[args.path];
+                      if (cur === undefined) {
+                        result = `error: file '${args.path}' not found`;
+                        event = {
+                          type: "action",
+                          tool: "edit",
+                          path: args.path,
+                          ok: false,
+                          error: "not found",
+                        };
+                      } else {
+                        const occ = cur.split(args.old_string).length - 1;
+                        if (occ !== 1) {
+                          result =
+                            occ === 0
+                              ? "error: old_string not found in file"
+                              : `error: old_string appears ${occ} times; make it unique`;
+                          event = {
+                            type: "action",
+                            tool: "edit",
+                            path: args.path,
+                            ok: false,
+                            error: occ === 0 ? "not found" : "ambiguous",
+                          };
+                        } else {
+                          files[args.path] = cur.replace(args.old_string, args.new_string);
+                          event = {
+                            type: "action",
+                            tool: "edit",
+                            path: args.path,
+                            ok: true,
+                            old: args.old_string,
+                            new: args.new_string,
+                          };
+                        }
+                      }
+                    } else if (call.function.name === "delete_file") {
+                      delete files[args.path];
+                      event = { type: "action", tool: "delete", path: args.path };
+                    } else {
+                      result = `error: unknown tool ${call.function.name}`;
+                    }
+                  } catch (e) {
+                    result = `error: ${(e as Error).message}`;
+                  }
+                  send(event);
+                  send({ type: "files", files });
+                  messages.push({
+                    role: "tool",
+                    tool_call_id: call.id,
+                    content: result,
+                  });
+                }
+              }
+              const cost = costUSD(getModel(body.model), totalIn, totalOut);
+              send({
+                type: "done",
+                message: "",
+                files,
+                usage: { inputTokens: totalIn, outputTokens: totalOut, usd: cost.total },
+              });
+            } catch (e) {
+              send({ type: "error", message: (e as Error).message });
+            } finally {
+              controller.close();
+            }
+          },
+        });
+
+        return new Response(stream, {
+          headers: {
+            "Content-Type": "application/x-ndjson; charset=utf-8",
+            "Cache-Control": "no-cache",
+          },
         });
       },
     },
