@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import type { Message } from "./storage";
 
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -58,4 +59,59 @@ export async function zipMarkdownProject(md: string, baseName = "octopus-project
   zip.file("README.md", md);
   const blob = await zip.generateAsync({ type: "blob" });
   downloadBlob(blob, `${baseName}.zip`);
+}
+
+/** Build a markdown log of every Builder edit across the conversation. */
+export function buildBuilderLog(messages: Message[], title = "Builder"): string {
+  const lines: string[] = [];
+  lines.push(`# Log de edições — ${title}`);
+  lines.push(`Gerado em: ${new Date().toLocaleString()}`);
+  lines.push("");
+  let turn = 0;
+  for (const m of messages) {
+    if (m.role !== "assistant" || !m.edits || m.edits.length === 0) continue;
+    turn++;
+    const when = new Date(m.createdAt).toLocaleString();
+    lines.push(`## Turno ${turn} — ${when}`);
+    if (typeof m.costUSD === "number") {
+      lines.push(`Custo: US$ ${m.costUSD.toFixed(5)}  ·  in ${m.inputTokens ?? 0} / out ${m.outputTokens ?? 0} tokens`);
+    }
+    if (m.content) {
+      lines.push("");
+      lines.push(`> ${m.content.replace(/\n/g, "\n> ")}`);
+    }
+    lines.push("");
+    for (const e of m.edits) {
+      if (e.tool === "write") {
+        lines.push(`### ${e.isNew ? "CREATE" : "REWRITE"} \`${e.path}\` (${e.size ?? 0} chars)`);
+        if (e.preview) {
+          lines.push("```");
+          lines.push(e.preview);
+          lines.push("```");
+        }
+      } else if (e.tool === "delete") {
+        lines.push(`### DELETE \`${e.path}\``);
+      } else if (e.tool === "edit") {
+        const head = e.ok === false
+          ? `### EDIT (falhou) \`${e.path}\` — ${e.error ?? ""}`
+          : `### EDIT \`${e.path}\`${e.line ? ` (linha ${e.line})` : ""}`;
+        lines.push(head);
+        if (e.ok !== false && e.old && e.new) {
+          lines.push("```diff");
+          for (const l of e.old.split("\n")) lines.push(`- ${l}`);
+          for (const l of e.new.split("\n")) lines.push(`+ ${l}`);
+          lines.push("```");
+        }
+      }
+      lines.push("");
+    }
+  }
+  if (turn === 0) lines.push("_Nenhuma edição registrada nesta conversa ainda._");
+  return lines.join("\n");
+}
+
+export function downloadBuilderLog(messages: Message[], title = "octopus-builder") {
+  const md = buildBuilderLog(messages, title);
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  downloadText(md, `${title}-log-${stamp}.md`, "text/markdown");
 }

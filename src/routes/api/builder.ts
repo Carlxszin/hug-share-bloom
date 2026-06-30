@@ -214,6 +214,9 @@ export const Route = createFileRoute("/api/builder")({
                             error: occ === 0 ? "not found" : "ambiguous",
                           };
                         } else {
+                          const idx = cur.indexOf(args.old_string);
+                          const line =
+                            idx >= 0 ? cur.slice(0, idx).split("\n").length : undefined;
                           files[args.path] = cur.replace(args.old_string, args.new_string);
                           event = {
                             type: "action",
@@ -222,6 +225,7 @@ export const Route = createFileRoute("/api/builder")({
                             ok: true,
                             old: args.old_string,
                             new: args.new_string,
+                            line,
                           };
                         }
                       }

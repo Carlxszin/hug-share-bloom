@@ -37,6 +37,7 @@ export type BuilderActivity = {
   isNew?: boolean;
   old?: string;
   new?: string;
+  line?: number;
   preview?: string;
   size?: number;
   ts: number;
@@ -229,16 +230,16 @@ function ChatPage() {
 
       const inTok = usage?.prompt_tokens ?? 0;
       const outTok = usage?.completion_tokens ?? 0;
+      const cost = costUSD(getModel(active.model), inTok, outTok);
       updateConversation(active.id, (c) => ({
         ...c,
         messages: c.messages.map((m) =>
           m.id === assistantMsg.id
-            ? { ...m, inputTokens: inTok, outputTokens: outTok }
+            ? { ...m, inputTokens: inTok, outputTokens: outTok, costUSD: cost.total }
             : m,
         ),
         updatedAt: Date.now(),
       }));
-      const cost = costUSD(getModel(active.model), inTok, outTok);
       logCost({ usd: cost.total, inputTokens: inTok, outputTokens: outTok });
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
@@ -315,6 +316,7 @@ function ChatPage() {
       const decoder = new TextDecoder();
       let buf = "";
       const fileChanges: { path: string; action: "write" | "edit" | "delete" }[] = [];
+      const turnEdits: import("@/lib/storage").FileEdit[] = [];
       let finalMsg = "";
       let usage = { inputTokens: 0, outputTokens: 0, usd: 0 };
       let latestFiles: Record<string, string> = active.files ?? {};
@@ -343,12 +345,26 @@ function ChatPage() {
               isNew: ev.isNew as boolean | undefined,
               old: ev.old as string | undefined,
               new: ev.new as string | undefined,
+              line: ev.line as number | undefined,
               preview: ev.preview as string | undefined,
               size: ev.size as number | undefined,
               ts: Date.now(),
             };
             setActivity((prev) => [...prev, a]);
             setFocusFile(a.path);
+            turnEdits.push({
+              tool: a.tool,
+              path: a.path,
+              ok: a.ok,
+              error: a.error,
+              isNew: a.isNew,
+              old: a.old,
+              new: a.new,
+              line: a.line,
+              preview: a.preview,
+              size: a.size,
+              ts: a.ts,
+            });
             if (a.ok !== false) fileChanges.push({ path: a.path, action: a.tool });
           } else if (ev.type === "files") {
             latestFiles = ev.files as Record<string, string>;
@@ -373,7 +389,9 @@ function ChatPage() {
                 content: finalMsg || "Atualizei o workspace.",
                 inputTokens: usage.inputTokens,
                 outputTokens: usage.outputTokens,
+                costUSD: usage.usd,
                 fileChanges,
+                edits: turnEdits,
               }
             : m,
         ),
@@ -461,7 +479,7 @@ function ChatPage() {
                 ) : (
                   <div className="max-w-2xl mx-auto px-2">
                     {active.messages.map((m) => (
-                      <MessageBubble key={m.id} message={m} onPreviewHtml={setPreviewHtml} />
+                      <MessageBubble key={m.id} message={m} rate={rate} onPreviewHtml={setPreviewHtml} />
                     ))}
                   </div>
                 )}
@@ -478,6 +496,8 @@ function ChatPage() {
             <div className="flex-1 min-w-0">
               <BuilderView
                 files={active.files ?? {}}
+                messages={active.messages}
+                conversationTitle={active.title}
                 onPreviewExternal={setPreviewHtml}
                 activity={activity}
                 focusFile={focusFile}
@@ -494,7 +514,7 @@ function ChatPage() {
               ) : (
                 <div className="max-w-3xl mx-auto">
                   {active.messages.map((m) => (
-                    <MessageBubble key={m.id} message={m} onPreviewHtml={setPreviewHtml} />
+                    <MessageBubble key={m.id} message={m} rate={rate} onPreviewHtml={setPreviewHtml} />
                   ))}
                 </div>
               )}

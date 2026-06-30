@@ -11,12 +11,15 @@ import {
   Trash2,
   AlertCircle,
   Loader2,
+  FileText,
 } from "lucide-react";
+import hljs from "highlight.js";
 import { Button } from "@/components/ui/button";
 import JSZip from "jszip";
-import { downloadBlob, downloadText } from "@/lib/download";
+import { downloadBlob, downloadText, downloadBuilderLog } from "@/lib/download";
 import { cn } from "@/lib/utils";
 import type { BuilderActivity } from "@/routes/index";
+import type { Message } from "@/lib/storage";
 
 function bundleForPreview(files: Record<string, string>): string {
   const html = files["index.html"];
@@ -47,12 +50,16 @@ function bundleForPreview(files: Record<string, string>): string {
 
 export function BuilderView({
   files,
+  messages = [],
+  conversationTitle = "octopus-builder",
   onPreviewExternal,
   activity = [],
   focusFile = null,
   streaming = false,
 }: {
   files: Record<string, string>;
+  messages?: Message[];
+  conversationTitle?: string;
   onPreviewExternal?: (html: string) => void;
   activity?: BuilderActivity[];
   focusFile?: string | null;
@@ -68,14 +75,12 @@ export function BuilderView({
   const previewHtml = useMemo(() => bundleForPreview(files), [files]);
   const empty = paths.length === 0;
 
-  // Auto-switch to the file being edited while streaming
   useEffect(() => {
     if (streaming && focusFile && files[focusFile] !== undefined) {
       setTab(focusFile);
     }
   }, [focusFile, streaming, files]);
 
-  // Once streaming ends, jump back to preview
   useEffect(() => {
     if (!streaming && activity.length > 0) {
       const t = setTimeout(() => setTab("preview"), 600);
@@ -92,6 +97,8 @@ export function BuilderView({
     const blob = await zip.generateAsync({ type: "blob" });
     downloadBlob(blob, "octopus-site.zip");
   };
+
+  const hasLog = messages.some((m) => m.edits && m.edits.length > 0);
 
   return (
     <div className="flex flex-col h-full bg-background/30 relative">
@@ -128,6 +135,17 @@ export function BuilderView({
             >
               {streaming && <Loader2 className="h-3 w-3 animate-spin" />}
               {showActivity ? "Ocultar" : "Mostrar"} edições ({activity.length})
+            </Button>
+          )}
+          {hasLog && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => downloadBuilderLog(messages, conversationTitle || "octopus-builder")}
+              className="h-7 text-xs gap-1.5"
+              title="Baixar log completo de edições"
+            >
+              <FileText className="h-3 w-3" /> Log
             </Button>
           )}
           {tab === "preview" && !empty && onPreviewExternal && (
@@ -181,7 +199,7 @@ export function BuilderView({
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              className="absolute top-3 right-3 bottom-3 w-[320px] rounded-xl border border-white/10 bg-background/85 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden"
+              className="absolute top-3 right-3 bottom-3 w-[340px] rounded-xl border border-white/10 bg-background/85 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden"
             >
               <div className="flex items-center gap-2 px-3 h-9 border-b border-white/5 text-[11px] uppercase tracking-wider text-muted-foreground">
                 {streaming ? (
@@ -207,12 +225,7 @@ export function BuilderView({
 }
 
 function ActivityRow({ a }: { a: BuilderActivity }) {
-  const Icon =
-    a.tool === "delete"
-      ? Trash2
-      : a.tool === "edit"
-        ? Pencil
-        : Plus;
+  const Icon = a.tool === "delete" ? Trash2 : a.tool === "edit" ? Pencil : Plus;
   const color =
     a.ok === false
       ? "text-destructive"
@@ -230,6 +243,11 @@ function ActivityRow({ a }: { a: BuilderActivity }) {
       <div className="flex items-center gap-1.5">
         <Icon className={cn("h-3 w-3 shrink-0", color)} />
         <span className="font-mono truncate flex-1">{a.path}</span>
+        {a.tool === "edit" && a.line != null && a.ok !== false && (
+          <span className="text-[10px] font-mono text-amber-300/80 bg-amber-500/10 border border-amber-500/20 rounded px-1">
+            L{a.line}
+          </span>
+        )}
         {a.ok === false && (
           <span className="inline-flex items-center gap-1 text-[10px] text-destructive">
             <AlertCircle className="h-3 w-3" /> {a.error}
@@ -241,8 +259,8 @@ function ActivityRow({ a }: { a: BuilderActivity }) {
       </div>
       {a.tool === "edit" && a.ok !== false && a.old && a.new && (
         <div className="mt-1.5 space-y-0.5">
-          <DiffLine kind="del" text={a.old} />
-          <DiffLine kind="add" text={a.new} />
+          <DiffBlock kind="del" text={a.old} startLine={a.line} />
+          <DiffBlock kind="add" text={a.new} startLine={a.line} />
         </div>
       )}
       {a.tool === "write" && a.preview && (
@@ -255,19 +273,41 @@ function ActivityRow({ a }: { a: BuilderActivity }) {
   );
 }
 
-function DiffLine({ kind, text }: { kind: "add" | "del"; text: string }) {
-  const trimmed = text.length > 160 ? text.slice(0, 160) + "…" : text;
+function DiffBlock({
+  kind,
+  text,
+  startLine,
+}: {
+  kind: "add" | "del";
+  text: string;
+  startLine?: number;
+}) {
+  const lines = text.split("\n");
+  const max = 6;
+  const shown = lines.slice(0, max);
   return (
     <div
       className={cn(
-        "text-[10.5px] font-mono px-1.5 py-0.5 rounded whitespace-pre-wrap break-all",
+        "text-[10.5px] font-mono rounded border whitespace-pre-wrap break-all overflow-hidden",
         kind === "add"
-          ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
-          : "bg-red-500/10 text-red-300 border border-red-500/20",
+          ? "bg-emerald-500/10 text-emerald-200 border-emerald-500/20"
+          : "bg-red-500/10 text-red-200 border-red-500/20",
       )}
     >
-      <span className="opacity-60 mr-1">{kind === "add" ? "+" : "−"}</span>
-      {trimmed}
+      {shown.map((l, i) => (
+        <div key={i} className="flex gap-2 px-1.5 py-0.5">
+          {startLine != null && (
+            <span className="opacity-50 select-none w-6 text-right shrink-0">
+              {startLine + i}
+            </span>
+          )}
+          <span className="opacity-60 select-none shrink-0">{kind === "add" ? "+" : "−"}</span>
+          <span className="flex-1 break-all">{l || " "}</span>
+        </div>
+      ))}
+      {lines.length > max && (
+        <div className="px-1.5 py-0.5 opacity-50">… +{lines.length - max} linhas</div>
+      )}
     </div>
   );
 }
@@ -311,6 +351,40 @@ function TabBtn({
   );
 }
 
+const HLJS_LANG: Record<string, string> = {
+  html: "xml",
+  htm: "xml",
+  svg: "xml",
+  js: "javascript",
+  mjs: "javascript",
+  ts: "typescript",
+  jsx: "javascript",
+  tsx: "typescript",
+  md: "markdown",
+  yml: "yaml",
+  sh: "bash",
+};
+
+function highlightCode(content: string, ext: string): string {
+  const lang = HLJS_LANG[ext] ?? ext;
+  try {
+    if (hljs.getLanguage(lang)) {
+      return hljs.highlight(content, { language: lang, ignoreIllegals: true }).value;
+    }
+  } catch {
+    /* fall through */
+  }
+  return escapeHtml(content);
+}
+
+function escapeHtml(s: string) {
+  return s.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c,
+  );
+}
+
 function FileViewer({
   path,
   content,
@@ -323,13 +397,18 @@ function FileViewer({
   activity: BuilderActivity[];
 }) {
   const lastEdit = [...activity].reverse().find((a) => a.tool === "edit" && a.ok !== false);
+  const html = useMemo(() => highlightCode(content, ext), [content, ext]);
+  const totalLines = useMemo(() => content.split("\n").length, [content]);
+
   return (
     <div className="absolute inset-0 flex flex-col">
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-white/[0.02]">
         <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-          {path} · {content.length} chars
-          {lastEdit && (
-            <span className="ml-2 text-amber-400 normal-case">· editado agora</span>
+          {path} · {totalLines} linhas · {content.length} chars
+          {lastEdit && lastEdit.line && (
+            <span className="ml-2 text-amber-400 normal-case">
+              · editado na linha {lastEdit.line}
+            </span>
           )}
         </span>
         <Button
@@ -341,31 +420,31 @@ function FileViewer({
           <Download className="h-3 w-3" /> baixar
         </Button>
       </div>
-      <pre className="flex-1 m-0 p-4 overflow-auto text-[12.5px] leading-relaxed font-mono bg-[#0d1117] text-zinc-200">
-        <code className={`language-${ext}`}>
-          {lastEdit && lastEdit.new ? <HighlightedContent content={content} highlight={lastEdit.new} /> : content}
-        </code>
-      </pre>
+      <div className="flex-1 m-0 overflow-auto text-[12.5px] leading-relaxed font-mono bg-[#0d1117]">
+        <pre className="m-0 p-0 flex">
+          <code
+            aria-hidden
+            className="select-none text-right pr-3 pl-3 py-4 text-zinc-600 border-r border-white/5 shrink-0"
+          >
+            {Array.from({ length: totalLines }, (_, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "leading-relaxed",
+                  lastEdit && lastEdit.line === i + 1 && "text-amber-400 font-semibold",
+                )}
+              >
+                {i + 1}
+              </div>
+            ))}
+          </code>
+          <code
+            className={`hljs language-${ext} flex-1 p-4 text-zinc-200`}
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        </pre>
+      </div>
     </div>
-  );
-}
-
-function HighlightedContent({ content, highlight }: { content: string; highlight: string }) {
-  const idx = content.indexOf(highlight);
-  if (idx === -1) return <>{content}</>;
-  return (
-    <>
-      {content.slice(0, idx)}
-      <motion.mark
-        initial={{ backgroundColor: "rgba(245, 158, 11, 0.5)" }}
-        animate={{ backgroundColor: "rgba(245, 158, 11, 0.15)" }}
-        transition={{ duration: 2 }}
-        className="rounded px-0.5 text-amber-100"
-      >
-        {highlight}
-      </motion.mark>
-      {content.slice(idx + highlight.length)}
-    </>
   );
 }
 
