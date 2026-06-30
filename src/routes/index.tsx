@@ -211,6 +211,7 @@ function ChatPage() {
     setLoading(true);
     const controller = new AbortController();
     abortRef.current = controller;
+    const t0 = performance.now();
 
     try {
       const res = await fetch("/api/chat", {
