@@ -62,7 +62,8 @@ export function CallModal({
       });
       if (!tokRes.ok) throw new Error(await tokRes.text());
       const session = await tokRes.json();
-      const ephemeralKey: string | undefined = session?.client_secret?.value;
+      const ephemeralKey: string | undefined =
+        session?.value ?? session?.client_secret?.value;
       if (!ephemeralKey) throw new Error("Token efêmero ausente");
 
       const pc = new RTCPeerConnection();
