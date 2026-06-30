@@ -345,6 +345,7 @@ function ChatPage() {
         toolCalls: [],
         retryCount: 0,
         truncated: false,
+        variant: variant.id,
       });
       // Background self-critique (non-blocking) — populates IQ score.
       if (assembled) {
