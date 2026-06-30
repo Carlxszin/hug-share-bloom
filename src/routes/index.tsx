@@ -20,6 +20,8 @@ import { ImageQueuePanel } from "@/components/chat/image-queue-panel";
 import { detectImagePrompt, enqueueImage } from "@/lib/image-queue";
 import { closeReservedExternalTabIfUnused, openInAppBrowser, reserveExternalTab } from "@/lib/browser-bus";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { IntelligenceButton, IntelligencePanel } from "@/components/chat/intelligence-panel";
+import { detectIntent, logTurn } from "@/lib/metrics";
 import {
   loadConversations,
   logCost,
