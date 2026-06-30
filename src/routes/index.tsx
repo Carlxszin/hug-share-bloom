@@ -300,7 +300,6 @@ function ChatPage() {
     };
     const baseMessages = [...active.messages, userMsg];
     const isFirst = active.messages.length === 0;
-    let preparedTab = prepareAgentTab(text);
     updateConversation(active.id, (c) => ({
       ...c,
       title: isFirst ? text.slice(0, 48) : c.title,
@@ -460,6 +459,7 @@ function ChatPage() {
     };
     const baseMessages = [...active.messages, userMsg];
     const isFirst = active.messages.length === 0;
+    let preparedTab = prepareAgentTab(text);
     updateConversation(active.id, (c) => ({
       ...c,
       title: isFirst ? text.slice(0, 48) : c.title,
