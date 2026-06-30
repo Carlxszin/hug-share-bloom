@@ -17,6 +17,10 @@ export const Route = createFileRoute("/api/chat")({
           return new Response("Requisição inválida", { status: 400 });
         }
 
+        // Guard: never forward the sentinel "auto" to OpenAI — fall back to a real model.
+        const KNOWN = new Set(["gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-4o", "gpt-4o-mini"]);
+        const safeModel = KNOWN.has(body.model) ? body.model : "gpt-5-mini";
+
         const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -24,7 +28,7 @@ export const Route = createFileRoute("/api/chat")({
             Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: body.model,
+            model: safeModel,
             messages: [
               { role: "system", content: PERSONA_SYSTEM + (body.systemAddon ? " " + body.systemAddon : "") },
               ...body.messages.filter((m) => m.role !== "system"),
