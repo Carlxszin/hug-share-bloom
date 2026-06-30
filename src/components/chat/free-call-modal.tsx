@@ -145,6 +145,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
         return;
       }
       setTranscript((p) => [...p, { role: "user", text: clean }]);
+      setFeed((p) => [...p, { kind: "user", text: clean }]);
       setPartial("");
       setActive("llm");
       setPhase("thinking");
