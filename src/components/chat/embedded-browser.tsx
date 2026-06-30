@@ -153,7 +153,7 @@ export function EmbeddedBrowser({
       const host = u.hostname.replace(/^www\./, "");
       let id: string | null = null;
       if (host === "youtu.be") id = u.pathname.slice(1).split("/")[0];
-      else if (host.endsWith("youtube.com")) {
+      else if (host.endsWith("youtube.com") || host === "m.youtube.com") {
         if (u.pathname === "/watch") id = u.searchParams.get("v");
         else if (u.pathname.startsWith("/shorts/")) id = u.pathname.split("/")[2];
         else if (u.pathname.startsWith("/embed/")) id = u.pathname.split("/")[2];
