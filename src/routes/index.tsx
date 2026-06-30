@@ -296,9 +296,24 @@ function ChatPage() {
             onSubmit={onSubmit}
             onStop={onStop}
             loading={loading}
+            onCall={() => setCallPickerOpen(true)}
           />
         </div>
       </main>
+      <CallModal open={callOpen} onClose={() => setCallOpen(false)} rate={rate} voice="alloy" />
+      <FreeCallModal open={freeCallOpen} onClose={() => setFreeCallOpen(false)} />
+      <CallPicker
+        open={callPickerOpen}
+        onClose={() => setCallPickerOpen(false)}
+        onFree={() => {
+          setCallPickerOpen(false);
+          setFreeCallOpen(true);
+        }}
+        onPaid={() => {
+          setCallPickerOpen(false);
+          setCallOpen(true);
+        }}
+      />
       <CallModal open={callOpen} onClose={() => setCallOpen(false)} rate={rate} voice="alloy" />
       <FreeCallModal open={freeCallOpen} onClose={() => setFreeCallOpen(false)} />
     </div>
