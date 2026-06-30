@@ -24,6 +24,7 @@ import { IntelligenceButton, IntelligencePanel } from "@/components/chat/intelli
 import { detectIntent, logTurn, patchTurn } from "@/lib/metrics";
 import { resolveModel } from "@/lib/router";
 import { findSimilar, saveEntry } from "@/lib/semantic-cache";
+import { pickVariant } from "@/lib/ab-prompts";
 import {
   loadConversations,
   logCost,
@@ -257,6 +258,7 @@ function ChatPage() {
     }
 
 
+    const variant = pickVariant(intent);
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -264,6 +266,7 @@ function ChatPage() {
         body: JSON.stringify({
           model: routedModel,
           messages: baseMessages.map((m) => ({ role: m.role, content: m.content })),
+          systemAddon: variant.suffix,
         }),
         signal: controller.signal,
       });
@@ -342,6 +345,7 @@ function ChatPage() {
         toolCalls: [],
         retryCount: 0,
         truncated: false,
+        variant: variant.id,
       });
       // Background self-critique (non-blocking) — populates IQ score.
       if (assembled) {

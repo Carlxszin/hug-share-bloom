@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { clearMetrics, useMetrics, type Intent } from "@/lib/metrics";
+import { computeVariantStats } from "@/lib/ab-prompts";
 
 const INTENT_LABEL: Record<Intent, string> = {
   chat: "Conversa",
@@ -47,9 +48,15 @@ export function IntelligenceButton({ onClick }: { onClick: () => void }) {
 
 export function IntelligencePanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { items, rollup } = useMetrics();
-  const [tab, setTab] = useState<"overview" | "models" | "intents" | "raw">("overview");
+  const [tab, setTab] = useState<"overview" | "models" | "intents" | "variants" | "raw">("overview");
 
   const recent = useMemo(() => items.slice(-20).reverse(), [items]);
+  const variantStats = useMemo(() => computeVariantStats(), [items]);
+  const bestVariant = useMemo(() => {
+    const mature = variantStats.filter((v) => v.count >= 3);
+    if (!mature.length) return null;
+    return mature.reduce((a, b) => (b.score > a.score ? b : a));
+  }, [variantStats]);
 
   return (
     <AnimatePresence>
@@ -100,7 +107,7 @@ export function IntelligencePanel({ open, onClose }: { open: boolean; onClose: (
 
             {/* Tabs */}
             <div className="flex items-center gap-1 px-4 border-b border-white/5 text-sm">
-              {(["overview", "intents", "models", "raw"] as const).map((t) => (
+              {(["overview", "intents", "models", "variants", "raw"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -108,7 +115,15 @@ export function IntelligencePanel({ open, onClose }: { open: boolean; onClose: (
                     tab === t ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {t === "overview" ? "Visão geral" : t === "intents" ? "Por intenção" : t === "models" ? "Por modelo" : "Recentes"}
+                  {t === "overview"
+                    ? "Visão geral"
+                    : t === "intents"
+                      ? "Por intenção"
+                      : t === "models"
+                        ? "Por modelo"
+                        : t === "variants"
+                          ? "A/B prompts"
+                          : "Recentes"}
                   {tab === t && (
                     <motion.div layoutId="iq-tab" className="absolute inset-x-2 -bottom-px h-px bg-primary" />
                   )}
@@ -186,6 +201,39 @@ export function IntelligencePanel({ open, onClose }: { open: boolean; onClose: (
                     })}
                 </div>
               )}
+
+              {tab === "variants" && (
+                <div className="space-y-3">
+                  {bestVariant && bestVariant.count >= 3 && (
+                    <div className="text-xs px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary-foreground/90">
+                      🏆 Vencedora atual: <span className="font-semibold">{bestVariant.label}</span> · score {(bestVariant.score * 100).toFixed(0)}
+                    </div>
+                  )}
+                  <div className="grid gap-2">
+                    {variantStats
+                      .sort((a, b) => b.score - a.score)
+                      .map((v) => (
+                        <div key={v.id} className="px-3 py-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium text-sm">{v.label}</div>
+                            <div className="text-xs text-muted-foreground tabular-nums">{v.count}× usos</div>
+                          </div>
+                          <div className="mt-1.5 flex items-center gap-4 text-xs text-muted-foreground tabular-nums">
+                            <span>👍 {Math.round(v.satisfaction * 100)}%</span>
+                            <span>🧠 {Math.round(v.avgSelfScore * 100)}%</span>
+                            <span>⚡ {(v.avgLatencyMs / 1000).toFixed(1)}s</span>
+                            <span>R$ {v.avgCostBRL.toFixed(4)}</span>
+                            <span className="ml-auto text-foreground font-semibold">score {(v.score * 100).toFixed(0)}</span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    O Octopus testa estas variantes do system prompt (epsilon-greedy 20% exploração) e converge para a melhor por satisfação + self-score.
+                  </div>
+                </div>
+              )}
+
 
               {tab === "raw" && (
                 <div className="space-y-1.5 font-mono text-[11px]">

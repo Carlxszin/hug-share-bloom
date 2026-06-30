@@ -30,6 +30,7 @@ export type TurnMetric = {
   thumb?: 1 | -1;
   selfScore?: number; // 0..1
   cacheHit?: boolean;
+  variant?: string; // A/B prompt variant id
 };
 
 const KEY = "octopus:metrics:v1";
