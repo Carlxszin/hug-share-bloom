@@ -285,6 +285,8 @@ function ChatPage() {
     }));
 
     setLoading(true);
+    setActivity([]);
+    setFocusFile(null);
     const controller = new AbortController();
     abortRef.current = controller;
     try {
@@ -298,7 +300,7 @@ function ChatPage() {
         }),
         signal: controller.signal,
       });
-      if (!res.ok) {
+      if (!res.ok || !res.body) {
         const err = await res.text();
         updateConversation(active.id, (c) => ({
           ...c,
@@ -308,28 +310,69 @@ function ChatPage() {
         }));
         return;
       }
-      const data = (await res.json()) as {
-        message: string;
-        files: Record<string, string>;
-        actions: { tool: "write" | "edit" | "delete"; path: string; ok?: boolean }[];
-        usage: { inputTokens: number; outputTokens: number; usd: number };
-      };
 
-      const summary = data.message?.trim() || "Atualizei o workspace.";
-      const fileChanges = data.actions.map((a) => ({
-        path: a.path,
-        action: a.tool as "write" | "edit" | "delete",
-      }));
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      const fileChanges: { path: string; action: "write" | "edit" | "delete" }[] = [];
+      let finalMsg = "";
+      let usage = { inputTokens: 0, outputTokens: 0, usd: 0 };
+      let latestFiles: Record<string, string> = active.files ?? {};
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let ev: Record<string, unknown>;
+          try {
+            ev = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          if (ev.type === "action") {
+            const a: BuilderActivity = {
+              id: crypto.randomUUID(),
+              tool: ev.tool as BuilderActivity["tool"],
+              path: ev.path as string,
+              ok: ev.ok as boolean | undefined,
+              error: ev.error as string | undefined,
+              isNew: ev.isNew as boolean | undefined,
+              old: ev.old as string | undefined,
+              new: ev.new as string | undefined,
+              preview: ev.preview as string | undefined,
+              size: ev.size as number | undefined,
+              ts: Date.now(),
+            };
+            setActivity((prev) => [...prev, a]);
+            setFocusFile(a.path);
+            if (a.ok !== false) fileChanges.push({ path: a.path, action: a.tool });
+          } else if (ev.type === "files") {
+            latestFiles = ev.files as Record<string, string>;
+            updateConversation(active.id, (c) => ({ ...c, files: latestFiles }));
+          } else if (ev.type === "done") {
+            finalMsg = (ev.message as string) || "Atualizei o workspace.";
+            usage = ev.usage as typeof usage;
+            latestFiles = (ev.files as Record<string, string>) ?? latestFiles;
+          } else if (ev.type === "error") {
+            finalMsg = `⚠️ ${ev.message as string}`;
+          }
+        }
+      }
+
       updateConversation(active.id, (c) => ({
         ...c,
-        files: data.files,
+        files: latestFiles,
         messages: c.messages.map((m) =>
           m.id === assistantMsg.id
             ? {
                 ...m,
-                content: summary,
-                inputTokens: data.usage.inputTokens,
-                outputTokens: data.usage.outputTokens,
+                content: finalMsg || "Atualizei o workspace.",
+                inputTokens: usage.inputTokens,
+                outputTokens: usage.outputTokens,
                 fileChanges,
               }
             : m,
@@ -337,9 +380,9 @@ function ChatPage() {
         updatedAt: Date.now(),
       }));
       logCost({
-        usd: data.usage.usd,
-        inputTokens: data.usage.inputTokens,
-        outputTokens: data.usage.outputTokens,
+        usd: usage.usd,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
       });
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
