@@ -646,6 +646,33 @@ function ChatPage() {
 
             </div>
           </div>
+        ) : isAgent ? (
+          <div className="relative flex-1 min-h-0 flex z-10">
+            <div className="flex flex-col flex-1 min-w-0 border-r border-white/5">
+              <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
+                {active.messages.length === 0 ? (
+                  <AgentEmpty onPick={setInput} />
+                ) : (
+                  <div className="max-w-3xl mx-auto">
+                    {active.messages.map((m) => (
+                      <MessageBubble key={m.id} message={m} rate={rate} onPreviewHtml={setPreviewHtml} />
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Composer
+                value={input}
+                onChange={setInput}
+                onSubmit={onSubmit}
+                onStop={onStop}
+                loading={loading}
+                onCall={() => setCallPickerOpen(true)}
+              />
+            </div>
+            <div className="w-[40%] min-w-[320px] max-w-[480px]">
+              <AgentView steps={agentSteps} streaming={loading} />
+            </div>
+          </div>
         ) : (
           <>
             <div ref={scrollRef} className="relative flex-1 overflow-y-auto scrollbar-thin z-10">
