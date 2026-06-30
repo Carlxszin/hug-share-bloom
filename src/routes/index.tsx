@@ -149,6 +149,35 @@ function ChatPage() {
     if (active.kind === "builder") return onSubmitBuilder();
     if (active.kind === "agent") return onSubmitAgent();
     const text = input.trim();
+
+    // Image-generation shortcut: enqueue + lightweight ack, no model call.
+    const imagePrompt = detectImagePrompt(text);
+    if (imagePrompt) {
+      enqueueImage(imagePrompt);
+      setInput("");
+      const userMsg: Message = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: text,
+        createdAt: Date.now(),
+      };
+      const ackMsg: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `Pode deixar, chefe — já coloquei na fila: **${imagePrompt}**. Enquanto eu desenho aí no canto, manda mais o que precisar. 🎨`,
+        model: active.model,
+        createdAt: Date.now(),
+      };
+      const isFirstUserMessage = active.messages.length === 0;
+      updateConversation(active.id, (c) => ({
+        ...c,
+        title: isFirstUserMessage ? text.slice(0, 48) : c.title,
+        messages: [...c.messages, userMsg, ackMsg],
+        updatedAt: Date.now(),
+      }));
+      return;
+    }
+
     reserveExternalTab();
     setInput("");
 
