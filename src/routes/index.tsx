@@ -230,16 +230,16 @@ function ChatPage() {
 
       const inTok = usage?.prompt_tokens ?? 0;
       const outTok = usage?.completion_tokens ?? 0;
+      const cost = costUSD(getModel(active.model), inTok, outTok);
       updateConversation(active.id, (c) => ({
         ...c,
         messages: c.messages.map((m) =>
           m.id === assistantMsg.id
-            ? { ...m, inputTokens: inTok, outputTokens: outTok }
+            ? { ...m, inputTokens: inTok, outputTokens: outTok, costUSD: cost.total }
             : m,
         ),
         updatedAt: Date.now(),
       }));
-      const cost = costUSD(getModel(active.model), inTok, outTok);
       logCost({ usd: cost.total, inputTokens: inTok, outputTokens: outTok });
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
