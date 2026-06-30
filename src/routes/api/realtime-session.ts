@@ -27,11 +27,28 @@ export const Route = createFileRoute("/api/realtime-session")({
           body: JSON.stringify({
             session: {
               type: "realtime",
-              model: "gpt-realtime",
-              audio: { output: { voice: body.voice ?? "alloy" } },
+              model: "gpt-realtime-mini",
+              audio: {
+                output: { voice: body.voice ?? "alloy" },
+                input: {
+                  // Sem transcrição de áudio de entrada (Whisper é cobrado à parte).
+                  transcription: null,
+                  // VAD do servidor com corte rápido reduz tokens de áudio processados.
+                  turn_detection: {
+                    type: "server_vad",
+                    threshold: 0.6,
+                    prefix_padding_ms: 200,
+                    silence_duration_ms: 400,
+                    create_response: true,
+                    interrupt_response: true,
+                  },
+                },
+              },
+              // Limita a resposta para evitar gastos altos por turno.
+              max_output_tokens: 400,
               instructions:
                 body.instructions ??
-                "Você é Aurora, uma assistente de IA brasileira, calorosa, objetiva e útil. Responda em português brasileiro de forma natural e conversacional.",
+                "Você é Aurora, assistente brasileira. Seja calorosa, direta e CONCISA: respostas curtas (1-3 frases) em português, exceto se pedirem detalhes.",
             },
           }),
         });
