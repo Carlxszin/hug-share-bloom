@@ -143,7 +143,13 @@ export function CallModal({
         }
       } else if (type === "conversation.item.input_audio_transcription.completed") {
         const text = (ev.transcript as string) ?? "";
-        if (text.trim()) pushFeed({ kind: "user", text });
+        if (text.trim()) {
+          const n = text.trim().toLowerCase();
+          if (/\b(pausa|pausar|pare|para)\b/.test(n) && /(música|musica|vídeo|video|som|áudio|audio)/.test(n)) sendBrowserCommand("pause");
+          else if (/\b(toca|tocar|continua|continuar|play)\b/.test(n) && /(música|musica|vídeo|video|som)/.test(n)) sendBrowserCommand("play");
+          else if (/\b(fecha|fechar|feche)\b/.test(n) && /(aba|site|página|pagina|janela|navegador)/.test(n)) sendBrowserCommand("close");
+          pushFeed({ kind: "user", text });
+        }
       } else if (type === "response.audio_transcript.done") {
         const text = (ev.transcript as string) ?? "";
         if (text.trim()) pushFeed({ kind: "assistant", text });
