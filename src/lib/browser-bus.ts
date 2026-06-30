@@ -87,6 +87,7 @@ export function closeExternalTab() {
 
 export function openInAppBrowser(url: string) {
   if (!url) return;
+  const hasEmbeddedBrowser = navListeners.size > 0;
   for (const l of navListeners) {
     try {
       l(url);
@@ -94,6 +95,7 @@ export function openInAppBrowser(url: string) {
       /* ignore */
     }
   }
+  if (!hasEmbeddedBrowser) openExternalTab(url);
   if (typeof window !== "undefined") {
     try {
       const prev = loadHistory();
