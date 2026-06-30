@@ -88,12 +88,14 @@ function CodeBlock({
   onPreviewHtml?: (html: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const isHtml = lang === "html";
+  const looksLikeHtml = /<\s*(!doctype html|html|body|div|section|main|head)[\s>]/i.test(raw);
+  const isHtml = lang === "html" || lang === "htm" || (!lang && looksLikeHtml);
   const extMap: Record<string, string> = {
     javascript: "js",
     typescript: "ts",
+    html: "html",
   };
-  const ext = extMap[lang] ?? (lang || "txt");
+  const ext = extMap[lang] ?? (lang || (looksLikeHtml ? "html" : "txt"));
   const copy = async () => {
     await navigator.clipboard.writeText(raw);
     setCopied(true);
