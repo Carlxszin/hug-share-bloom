@@ -37,6 +37,8 @@ export function EmbeddedBrowser({
   const [showHistory, setShowHistory] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const blockTimer = useRef<number | null>(null);
+  const externalTabRef = useRef<Window | null>(null);
+  const autoOpenedFor = useRef<string | null>(null);
 
   const current = idx >= 0 ? stack[idx] : null;
 
