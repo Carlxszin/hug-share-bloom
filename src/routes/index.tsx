@@ -184,7 +184,10 @@ function ChatPage() {
       return;
     }
 
-    reserveExternalTab();
+    // Only reserve an external tab if the prompt clearly hints navigation.
+    if (/\b(abr[ei]r?|tocar?|p[õo]e|p[õo]r|mostr[ae]r?|coloca|navega[rd]?o?|http[s]?:\/\/)/i.test(text)) {
+      reserveExternalTab();
+    }
     setInput("");
 
     const userMsg: Message = {
