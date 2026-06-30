@@ -20,13 +20,11 @@ import {
   subscribeBrowserCommands,
 } from "@/lib/browser-bus";
 
-function shouldOpenExternalAutomatically(url: string) {
-  try {
-    const host = new URL(url).hostname.replace(/^www\./, "");
-    return host === "youtu.be" || host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com");
-  } catch {
-    return false;
-  }
+// YouTube is embedded via youtube-nocookie.com/embed inside the iframe,
+// so we never need to auto-open it in an external tab. Sites that truly
+// refuse to render fall back through the `blocked` timer below.
+function shouldOpenExternalAutomatically(_url: string) {
+  return false;
 }
 
 /**
