@@ -32,15 +32,24 @@ export type Message = {
   agentSteps?: AgentStep[];
 };
 
+export type AgentTool =
+  | "web_search"
+  | "fetch_page"
+  | "screenshot"
+  | "extract_structured"
+  | "compare_pages"
+  | "calculate";
+
 export type AgentStep = {
   id: string;
-  tool: "web_search" | "fetch_page" | "screenshot";
+  tool: AgentTool;
   input: Record<string, unknown>;
   ok?: boolean;
   error?: string;
   result?: string;
   screenshotUrl?: string;
   links?: { title: string; url: string; snippet?: string }[];
+  cached?: boolean;
   ts: number;
 };
 

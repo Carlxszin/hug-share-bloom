@@ -1,6 +1,27 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Globe, Camera, Loader2, Check, AlertTriangle, ExternalLink } from "lucide-react";
-import type { AgentStep } from "@/lib/storage";
+import {
+  Search,
+  Globe,
+  Camera,
+  Loader2,
+  Check,
+  AlertTriangle,
+  ExternalLink,
+  Database,
+  GitCompare,
+  Calculator,
+
+} from "lucide-react";
+import type { AgentStep, AgentTool } from "@/lib/storage";
+
+const TOOL_META: Record<AgentTool, { icon: typeof Search; label: string }> = {
+  web_search: { icon: Search, label: "Pesquisa" },
+  fetch_page: { icon: Globe, label: "Leitura" },
+  screenshot: { icon: Camera, label: "Screenshot" },
+  extract_structured: { icon: Database, label: "Extração" },
+  compare_pages: { icon: GitCompare, label: "Comparação" },
+  calculate: { icon: Calculator, label: "Cálculo" },
+};
 
 export function AgentView({
   steps,
@@ -39,16 +60,17 @@ export function AgentView({
 }
 
 function StepCard({ step }: { step: AgentStep }) {
-  const Icon =
-    step.tool === "web_search" ? Search : step.tool === "fetch_page" ? Globe : Camera;
-  const label =
-    step.tool === "web_search"
-      ? "Pesquisa"
-      : step.tool === "fetch_page"
-        ? "Leitura"
-        : "Screenshot";
+  const meta = TOOL_META[step.tool] ?? { icon: Search, label: step.tool };
+  const Icon = meta.icon;
+  const label = meta.label;
   const arg =
-    (step.input?.query as string) ?? (step.input?.url as string) ?? "";
+    (step.input?.query as string) ??
+    (step.input?.url as string) ??
+    (step.input?.expression as string) ??
+    (Array.isArray(step.input?.urls)
+      ? (step.input.urls as string[]).join(", ")
+      : "") ??
+    "";
 
   return (
     <motion.div
@@ -71,6 +93,11 @@ function StepCard({ step }: { step: AgentStep }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
             {label}
+            {step.cached && (
+              <span className="px-1.5 py-0.5 rounded bg-success/15 text-success text-[9px] tracking-wider">
+                CACHE
+              </span>
+            )}
             {step.ok === false ? (
               <AlertTriangle className="h-3 w-3 text-destructive" />
             ) : (
