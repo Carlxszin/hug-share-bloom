@@ -688,6 +688,19 @@ function ChatPage() {
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
       });
+      logTurn({
+        intent: "agent",
+        model: active.model,
+        mode: "paid",
+        tokensIn: usage.inputTokens,
+        tokensOut: usage.outputTokens,
+        latencyMs: Math.round(performance.now() - tAgent0),
+        costUSD: usage.usd,
+        costBRL: usage.usd * rate,
+        toolCalls: turnSteps.map((s) => ({ name: s.tool, ok: s.ok !== false })),
+        retryCount: 0,
+        truncated: false,
+      });
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         updateConversation(active.id, (c) => ({
