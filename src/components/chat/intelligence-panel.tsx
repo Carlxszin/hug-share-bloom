@@ -107,7 +107,7 @@ export function IntelligencePanel({ open, onClose }: { open: boolean; onClose: (
 
             {/* Tabs */}
             <div className="flex items-center gap-1 px-4 border-b border-white/5 text-sm">
-              {(["overview", "intents", "models", "raw"] as const).map((t) => (
+              {(["overview", "intents", "models", "variants", "raw"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -115,7 +115,15 @@ export function IntelligencePanel({ open, onClose }: { open: boolean; onClose: (
                     tab === t ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {t === "overview" ? "Visão geral" : t === "intents" ? "Por intenção" : t === "models" ? "Por modelo" : "Recentes"}
+                  {t === "overview"
+                    ? "Visão geral"
+                    : t === "intents"
+                      ? "Por intenção"
+                      : t === "models"
+                        ? "Por modelo"
+                        : t === "variants"
+                          ? "A/B prompts"
+                          : "Recentes"}
                   {tab === t && (
                     <motion.div layoutId="iq-tab" className="absolute inset-x-2 -bottom-px h-px bg-primary" />
                   )}
