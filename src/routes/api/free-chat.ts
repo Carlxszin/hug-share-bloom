@@ -95,6 +95,14 @@ async function ddgSearch(query: string) {
   return results;
 }
 
+class GatewayError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function callGateway(apiKey: string, messages: Msg[]) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -108,7 +116,7 @@ async function callGateway(apiKey: string, messages: Msg[]) {
   });
   if (!res.ok) {
     const t = await res.text();
-    throw new Error(t || `Gateway ${res.status}`);
+    throw new GatewayError(res.status, t || `Gateway ${res.status}`);
   }
   return res.json() as Promise<{
     choices: Array<{
@@ -181,7 +189,21 @@ export const Route = createFileRoute("/api/free-chat")({
             searches,
           });
         } catch (e) {
-          return new Response((e as Error).message, { status: 500 });
+          const err = e as GatewayError;
+          const status = err.status ?? 500;
+          if (status === 429 || status === 402 || status >= 500) {
+            const reason =
+              status === 402
+                ? "Os créditos grátis acabaram, chefe. Adicione créditos ou use o modo pago (OpenAI)."
+                : status === 429
+                ? "A API grátis está sobrecarregada agora, chefe. Tente em 1 minuto ou troque para o modo pago (OpenAI)."
+                : "A API grátis está instável, chefe. Tente novamente ou use o modo pago.";
+            return Response.json(
+              { reply: reason, opens, searches, fallback: true, code: status },
+              { status: 200 },
+            );
+          }
+          return new Response(err.message, { status });
         }
       },
     },
