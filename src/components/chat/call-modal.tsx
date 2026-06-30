@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Phone, PhoneOff, Mic, MicOff, Loader2, Activity, Search, ExternalLink, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { realtimeCostUSD } from "@/lib/models";
-import { openInAppBrowser } from "@/lib/browser-bus";
+import { openInAppBrowser, sendBrowserCommand } from "@/lib/browser-bus";
 
 type Usage = { textIn: number; textOut: number; audioIn: number; audioOut: number };
 type FeedItem =
