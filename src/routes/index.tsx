@@ -33,6 +33,7 @@ function ChatPage() {
   const [rate, setRate] = useState(5.4);
   const [callOpen, setCallOpen] = useState(false);
   const [freeCallOpen, setFreeCallOpen] = useState(false);
+  const [callPickerOpen, setCallPickerOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -251,19 +252,7 @@ function ChatPage() {
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 h-[520px] w-[520px] rounded-full bg-primary/[0.07] blur-[140px] ambient-glow" />
         </div>
 
-        <header className="relative h-16 flex items-center justify-between px-6 md:px-8 gap-4 border-b border-white/5 bg-background/40 backdrop-blur-xl z-10">
-          <div className="flex items-center gap-3 min-w-0">
-            <h1 className="text-sm font-medium tracking-tight text-foreground truncate">
-              {active.title || "Nova conversa"}
-            </h1>
-            <Badge
-              variant="outline"
-              className="gap-1.5 rounded-full border-white/10 bg-white/[0.04] text-[10px] px-2 py-0.5 font-medium text-muted-foreground"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-              online
-            </Badge>
-          </div>
+        <header className="relative h-16 flex items-center justify-end px-6 md:px-8 gap-4 border-b border-white/5 bg-background/40 backdrop-blur-xl z-10">
           <div className="flex items-center gap-2">
             <ModelSelector
               value={active.model}
@@ -273,20 +262,13 @@ function ChatPage() {
             />
             <div className="h-6 w-px bg-white/10 mx-1" />
             <Button
-              size="sm"
+              size="icon"
               variant="ghost"
-              onClick={() => setFreeCallOpen(true)}
-              className="gap-1.5 rounded-full text-success hover:bg-success/10 hover:text-success h-8 px-3"
+              onClick={() => setCallPickerOpen(true)}
+              aria-label="Ligar"
+              className="h-8 w-8 rounded-full hover:bg-white/[0.06]"
             >
-              <PhoneCall className="h-3.5 w-3.5" /> Grátis
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setCallOpen(true)}
-              className="gap-1.5 rounded-full hover:bg-white/[0.06] h-8 px-3"
-            >
-              <Phone className="h-3.5 w-3.5" /> Ligar
+              <Phone className="h-4 w-4" />
             </Button>
             <ThemeToggle />
           </div>
@@ -314,14 +296,83 @@ function ChatPage() {
             onSubmit={onSubmit}
             onStop={onStop}
             loading={loading}
+            onCall={() => setCallPickerOpen(true)}
           />
         </div>
       </main>
       <CallModal open={callOpen} onClose={() => setCallOpen(false)} rate={rate} voice="alloy" />
       <FreeCallModal open={freeCallOpen} onClose={() => setFreeCallOpen(false)} />
+      <CallPicker
+        open={callPickerOpen}
+        onClose={() => setCallPickerOpen(false)}
+        onFree={() => {
+          setCallPickerOpen(false);
+          setFreeCallOpen(true);
+        }}
+        onPaid={() => {
+          setCallPickerOpen(false);
+          setCallOpen(true);
+        }}
+      />
     </div>
   );
 }
+
+function CallPicker({
+  open,
+  onClose,
+  onFree,
+  onPaid,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onFree: () => void;
+  onPaid: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm rounded-2xl border border-white/10 bg-background/95 backdrop-blur-xl p-6 shadow-2xl"
+      >
+        <h3 className="text-lg font-medium tracking-tight">Escolha o modelo</h3>
+        <p className="text-sm text-muted-foreground mt-1">Qual modo de chamada usar?</p>
+        <div className="mt-5 grid gap-3">
+          <button
+            onClick={onFree}
+            className="text-left p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-success/40 transition"
+          >
+            <div className="flex items-center gap-2 text-success font-medium">
+              <PhoneCall className="h-4 w-4" /> Grátis
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Web Speech (navegador) + Gemini via gateway. Sem custo.
+            </p>
+          </button>
+          <button
+            onClick={onPaid}
+            className="text-left p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-primary/40 transition"
+          >
+            <div className="flex items-center gap-2 text-primary font-medium">
+              <Phone className="h-4 w-4" /> Pago
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              OpenAI Realtime (gpt-realtime-mini). Latência menor, custo em BRL.
+            </p>
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+
 
 function EmptyState({ onPick }: { onPick: (v: string) => void }) {
   const suggestions = [
