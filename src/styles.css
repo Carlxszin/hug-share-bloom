@@ -118,8 +118,8 @@
     background-image:
       radial-gradient(1200px 600px at 15% -10%, color-mix(in oklab, var(--primary) 10%, transparent), transparent 60%),
       radial-gradient(900px 500px at 100% 110%, color-mix(in oklab, var(--primary) 8%, transparent), transparent 60%);
-    background-attachment: fixed;
   }
+
   code, pre {
     font-family: var(--font-mono);
   }

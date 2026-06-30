@@ -169,8 +169,9 @@ export function EmbeddedBrowser({
 
   return (
     <div
-      className={`flex flex-col bg-card/60 backdrop-blur border border-white/10 rounded-2xl overflow-hidden ${className}`}
+      className={`flex flex-col bg-card border border-white/10 rounded-2xl overflow-hidden ${className}`}
     >
+
       {/* Toolbar */}
       <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-white/10 bg-background/40">
         <Button

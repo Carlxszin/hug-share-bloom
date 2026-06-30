@@ -713,7 +713,7 @@ function ChatPage() {
         </div>
         <ImageQueuePanel className="top-20" />
 
-        <header className="relative h-16 flex items-center justify-between px-6 md:px-8 gap-4 border-b border-white/5 bg-background/40 backdrop-blur-xl z-10">
+        <header className="relative h-16 flex items-center justify-between px-6 md:px-8 gap-4 border-b border-white/5 bg-background/90 z-10">
           <div className="flex items-center gap-2 min-w-0">
             {isBuilder && (
               <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-primary font-semibold bg-primary/10 border border-primary/20 rounded-full px-2.5 py-1">
