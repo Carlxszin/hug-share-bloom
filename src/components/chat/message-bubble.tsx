@@ -1,11 +1,19 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Copy, Check, User } from "lucide-react";
+import { Copy, Check, User, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Message } from "@/lib/storage";
+import { Markdown } from "./markdown";
+import { extractCodeBlocks, zipMarkdownProject } from "@/lib/download";
 
-export function MessageBubble({ message }: { message: Message }) {
+export function MessageBubble({
+  message,
+  onPreviewHtml,
+}: {
+  message: Message;
+  onPreviewHtml?: (html: string) => void;
+}) {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === "user";
 
@@ -14,6 +22,12 @@ export function MessageBubble({ message }: { message: Message }) {
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
+
+  const blocks = !isUser ? extractCodeBlocks(message.content) : [];
+  const codeFileCount = blocks.filter((b) =>
+    ["html", "css", "js", "javascript", "ts", "typescript", "jsx", "tsx", "json"].includes(b.lang),
+  ).length;
+  const showZip = codeFileCount >= 2;
 
   return (
     <motion.div
@@ -43,15 +57,21 @@ export function MessageBubble({ message }: { message: Message }) {
             </span>
           )}
         </div>
-        <div className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-foreground/95">
-          {message.content || (
-            <span className="inline-flex gap-1.5 items-center py-1">
-              <Dot /> <Dot delay={0.15} /> <Dot delay={0.3} />
-            </span>
-          )}
-        </div>
+        {message.content ? (
+          isUser ? (
+            <div className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-foreground/95">
+              {message.content}
+            </div>
+          ) : (
+            <Markdown content={message.content} onPreviewHtml={onPreviewHtml} />
+          )
+        ) : (
+          <span className="inline-flex gap-1.5 items-center py-1">
+            <Dot /> <Dot delay={0.15} /> <Dot delay={0.3} />
+          </span>
+        )}
         {!isUser && message.content && (
-          <div className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="mt-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
               variant="ghost"
               size="sm"
@@ -61,12 +81,33 @@ export function MessageBubble({ message }: { message: Message }) {
               {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
               {copied ? "Copiado" : "Copiar"}
             </Button>
+            {showZip && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => zipMarkdownProject(message.content)}
+                className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-white/5"
+              >
+                <Package className="h-3 w-3" /> Baixar .zip
+              </Button>
+            )}
           </div>
         )}
       </div>
     </motion.div>
   );
 }
+
+function Dot({ delay = 0 }: { delay?: number }) {
+  return (
+    <motion.span
+      className="h-1.5 w-1.5 rounded-full bg-primary/70 inline-block"
+      animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
+      transition={{ duration: 1, repeat: Infinity, delay }}
+    />
+  );
+}
+
 
 function Dot({ delay = 0 }: { delay?: number }) {
   return (
