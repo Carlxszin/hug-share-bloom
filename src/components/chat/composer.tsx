@@ -159,7 +159,20 @@ export function Composer({
                     </motion.div>
                   )}
                 </AnimatePresence>
+                {onCall && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={onCall}
+                    disabled={loading || transcribing || recording}
+                    aria-label="Ligar"
+                    className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  >
+                    <Phone className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
+
 
               {loading ? (
                 <Button
