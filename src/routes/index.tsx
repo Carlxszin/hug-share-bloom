@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Phone, PhoneCall, PenLine, Code2, Lightbulb, BookOpen } from "lucide-react";
+import { Phone, PhoneCall, PenLine, Code2, Lightbulb, BookOpen, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CallModal } from "@/components/chat/call-modal";
@@ -12,14 +12,16 @@ import { CostBar } from "@/components/chat/cost-bar";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { HtmlPreview } from "@/components/chat/html-preview";
 import { ModelSelector } from "@/components/chat/model-selector";
+import { NewChatPicker } from "@/components/chat/new-chat-picker";
+import { BuilderView } from "@/components/chat/builder-view";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Badge } from "@/components/ui/badge";
 import {
   loadConversations,
   logCost,
   newConversation,
   saveConversations,
   type Conversation,
+  type ConversationKind,
   type Message,
 } from "@/lib/storage";
 import { costUSD, DEFAULT_MODEL, getModel } from "@/lib/models";
@@ -35,6 +37,7 @@ function ChatPage() {
   const [callOpen, setCallOpen] = useState(false);
   const [freeCallOpen, setFreeCallOpen] = useState(false);
   const [callPickerOpen, setCallPickerOpen] = useState(false);
+  const [newChatPickerOpen, setNewChatPickerOpen] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -80,12 +83,15 @@ function ChatPage() {
     [],
   );
 
-  const onNew = () => {
-    const c = newConversation(active?.model ?? DEFAULT_MODEL);
+  const onNew = () => setNewChatPickerOpen(true);
+
+  const handlePick = (kind: ConversationKind, model: string) => {
+    const c = newConversation(model, kind);
     const next = [c, ...conversations];
     setConversations(next);
     setActiveId(c.id);
     saveConversations(next);
+    setNewChatPickerOpen(false);
   };
 
   const onDelete = (id: string) => {
@@ -113,6 +119,7 @@ function ChatPage() {
 
   const onSubmit = async () => {
     if (!active || !input.trim() || loading) return;
+    if (active.kind === "builder") return onSubmitBuilder();
     const text = input.trim();
     setInput("");
 
@@ -234,9 +241,110 @@ function ChatPage() {
     }
   };
 
+  const onSubmitBuilder = async () => {
+    if (!active || !input.trim() || loading) return;
+    const text = input.trim();
+    setInput("");
+
+    const userMsg: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: text,
+      createdAt: Date.now(),
+    };
+    const assistantMsg: Message = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: "Pensando e editando arquivos…",
+      model: active.model,
+      createdAt: Date.now(),
+    };
+    const baseMessages = [...active.messages, userMsg];
+    const isFirst = active.messages.length === 0;
+    updateConversation(active.id, (c) => ({
+      ...c,
+      title: isFirst ? text.slice(0, 48) : c.title,
+      messages: [...baseMessages, assistantMsg],
+      updatedAt: Date.now(),
+    }));
+
+    setLoading(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    try {
+      const res = await fetch("/api/builder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: active.model,
+          messages: baseMessages.map((m) => ({ role: m.role, content: m.content })),
+          files: active.files ?? {},
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        updateConversation(active.id, (c) => ({
+          ...c,
+          messages: c.messages.map((m) =>
+            m.id === assistantMsg.id ? { ...m, content: `⚠️ Erro: ${err || res.status}` } : m,
+          ),
+        }));
+        return;
+      }
+      const data = (await res.json()) as {
+        message: string;
+        files: Record<string, string>;
+        actions: { tool: "write" | "edit" | "delete"; path: string; ok?: boolean }[];
+        usage: { inputTokens: number; outputTokens: number; usd: number };
+      };
+
+      const summary = data.message?.trim() || "Atualizei o workspace.";
+      const fileChanges = data.actions.map((a) => ({
+        path: a.path,
+        action: a.tool as "write" | "edit" | "delete",
+      }));
+      updateConversation(active.id, (c) => ({
+        ...c,
+        files: data.files,
+        messages: c.messages.map((m) =>
+          m.id === assistantMsg.id
+            ? {
+                ...m,
+                content: summary,
+                inputTokens: data.usage.inputTokens,
+                outputTokens: data.usage.outputTokens,
+                fileChanges,
+              }
+            : m,
+        ),
+        updatedAt: Date.now(),
+      }));
+      logCost({
+        usd: data.usage.usd,
+        inputTokens: data.usage.inputTokens,
+        outputTokens: data.usage.outputTokens,
+      });
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        updateConversation(active.id, (c) => ({
+          ...c,
+          messages: c.messages.map((m) =>
+            m.id === assistantMsg.id ? { ...m, content: `⚠️ ${(err as Error).message}` } : m,
+          ),
+        }));
+      }
+    } finally {
+      setLoading(false);
+      abortRef.current = null;
+    }
+  };
+
   if (!active) {
     return <div className="min-h-screen flex items-center justify-center">Carregando…</div>;
   }
+
+  const isBuilder = active.kind === "builder";
 
   return (
     <div className="h-screen flex bg-background text-foreground">
@@ -254,7 +362,14 @@ function ChatPage() {
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 h-[520px] w-[520px] rounded-full bg-primary/[0.07] blur-[140px] ambient-glow" />
         </div>
 
-        <header className="relative h-16 flex items-center justify-end px-6 md:px-8 gap-4 border-b border-white/5 bg-background/40 backdrop-blur-xl z-10">
+        <header className="relative h-16 flex items-center justify-between px-6 md:px-8 gap-4 border-b border-white/5 bg-background/40 backdrop-blur-xl z-10">
+          <div className="flex items-center gap-2 min-w-0">
+            {isBuilder && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-primary font-semibold bg-primary/10 border border-primary/20 rounded-full px-2.5 py-1">
+                <Sparkles className="h-3 w-3" /> Builder
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <ModelSelector
               value={active.model}
@@ -276,31 +391,61 @@ function ChatPage() {
           </div>
         </header>
 
-
         <CostBar conversation={active} rate={rate} />
 
-        <div ref={scrollRef} className="relative flex-1 overflow-y-auto scrollbar-thin z-10">
-          {active.messages.length === 0 ? (
-            <EmptyState onPick={setInput} />
-          ) : (
-            <div className="max-w-3xl mx-auto">
-              {active.messages.map((m) => (
-                <MessageBubble key={m.id} message={m} onPreviewHtml={setPreviewHtml} />
-              ))}
+        {isBuilder ? (
+          <div className="relative flex-1 min-h-0 flex z-10">
+            <div className="flex flex-col w-[44%] min-w-[340px] max-w-[560px] border-r border-white/5">
+              <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
+                {active.messages.length === 0 ? (
+                  <BuilderEmpty onPick={setInput} />
+                ) : (
+                  <div className="max-w-2xl mx-auto px-2">
+                    {active.messages.map((m) => (
+                      <MessageBubble key={m.id} message={m} onPreviewHtml={setPreviewHtml} />
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Composer
+                value={input}
+                onChange={setInput}
+                onSubmit={onSubmit}
+                onStop={onStop}
+                loading={loading}
+                onCall={() => setCallPickerOpen(true)}
+              />
             </div>
-          )}
-        </div>
+            <div className="flex-1 min-w-0">
+              <BuilderView files={active.files ?? {}} onPreviewExternal={setPreviewHtml} />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div ref={scrollRef} className="relative flex-1 overflow-y-auto scrollbar-thin z-10">
+              {active.messages.length === 0 ? (
+                <EmptyState onPick={setInput} />
+              ) : (
+                <div className="max-w-3xl mx-auto">
+                  {active.messages.map((m) => (
+                    <MessageBubble key={m.id} message={m} onPreviewHtml={setPreviewHtml} />
+                  ))}
+                </div>
+              )}
+            </div>
 
-        <div className="relative z-10">
-          <Composer
-            value={input}
-            onChange={setInput}
-            onSubmit={onSubmit}
-            onStop={onStop}
-            loading={loading}
-            onCall={() => setCallPickerOpen(true)}
-          />
-        </div>
+            <div className="relative z-10">
+              <Composer
+                value={input}
+                onChange={setInput}
+                onSubmit={onSubmit}
+                onStop={onStop}
+                loading={loading}
+                onCall={() => setCallPickerOpen(true)}
+              />
+            </div>
+          </>
+        )}
       </main>
       <CallModal open={callOpen} onClose={() => setCallOpen(false)} rate={rate} voice="alloy" />
       <FreeCallModal open={freeCallOpen} onClose={() => setFreeCallOpen(false)} />
@@ -315,6 +460,11 @@ function ChatPage() {
           setCallPickerOpen(false);
           setCallOpen(true);
         }}
+      />
+      <NewChatPicker
+        open={newChatPickerOpen}
+        onClose={() => setNewChatPickerOpen(false)}
+        onPick={handlePick}
       />
       <HtmlPreview html={previewHtml} onClose={() => setPreviewHtml(null)} />
     </div>
@@ -375,7 +525,49 @@ function CallPicker({
   );
 }
 
-
+function BuilderEmpty({ onPick }: { onPick: (v: string) => void }) {
+  const ideas = [
+    "Landing page para uma cafeteria artesanal com hero, menu e contato",
+    "Portfólio minimalista de fotógrafo com galeria em grid",
+    "Página de produto SaaS com hero, recursos, preços e FAQ",
+    "Site one-page para evento de tech com countdown e CTA",
+  ];
+  return (
+    <div className="h-full flex flex-col items-center justify-center px-6 py-12 text-center">
+      <div className="max-w-md w-full space-y-6">
+        <div className="space-y-2">
+          <motion.h2
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-3xl tracking-tight"
+            style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontWeight: 600 }}
+          >
+            O que vamos construir?
+          </motion.h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Descreva o site. O Octopus cria os arquivos e edita em pequenos diffs.
+          </p>
+        </div>
+        <div className="grid gap-2 text-left">
+          {ideas.map((t, i) => (
+            <motion.button
+              key={t}
+              type="button"
+              onClick={() => onPick(t)}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 + i * 0.05 }}
+              whileHover={{ x: 2 }}
+              className="p-3 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-primary/30 transition text-xs text-foreground/90"
+            >
+              {t}
+            </motion.button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function EmptyState({ onPick }: { onPick: (v: string) => void }) {
   const suggestions = [
