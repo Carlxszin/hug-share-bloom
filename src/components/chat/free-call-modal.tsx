@@ -237,6 +237,16 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
       if (interim) setPartial(interim);
       if (finalText && !mutedRef.current) {
         const norm = finalText.trim().toLowerCase();
+        // Browser control commands (handled locally, never sent to AI)
+        if (/\b(pausa|pausar|pare|para)\b/.test(norm) && /(música|musica|vídeo|video|som|áudio|audio)/.test(norm)) {
+          sendBrowserCommand("pause"); setPartial(""); return;
+        }
+        if (/\b(toca|tocar|continua|continuar|play)\b/.test(norm) && /(música|musica|vídeo|video|som)/.test(norm)) {
+          sendBrowserCommand("play"); setPartial(""); return;
+        }
+        if (/\b(fecha|fechar|feche)\b/.test(norm) && /(aba|site|página|pagina|janela|navegador)/.test(norm)) {
+          sendBrowserCommand("close"); setPartial(""); return;
+        }
         // Drop echo of our own utterance (TTS bleeding into the mic)
         const last = lastAssistantRef.current;
         if (last && (last.includes(norm) || norm.includes(last.slice(0, Math.min(40, last.length))))) {
