@@ -140,6 +140,7 @@ function ChatPage() {
   const onSubmit = async () => {
     if (!active || !input.trim() || loading) return;
     if (active.kind === "builder") return onSubmitBuilder();
+    if (active.kind === "agent") return onSubmitAgent();
     const text = input.trim();
     setInput("");
 
