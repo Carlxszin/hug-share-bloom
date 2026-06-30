@@ -10,6 +10,7 @@ import {
   Database,
   GitCompare,
   Calculator,
+  ExternalLink as OpenIcon,
 
 } from "lucide-react";
 import type { AgentStep, AgentTool } from "@/lib/storage";
@@ -21,6 +22,7 @@ const TOOL_META: Record<AgentTool, { icon: typeof Search; label: string }> = {
   extract_structured: { icon: Database, label: "Extração" },
   compare_pages: { icon: GitCompare, label: "Comparação" },
   calculate: { icon: Calculator, label: "Cálculo" },
+  open_url: { icon: OpenIcon, label: "Abrir aba" },
 };
 
 export function AgentView({
