@@ -23,6 +23,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { IntelligenceButton, IntelligencePanel } from "@/components/chat/intelligence-panel";
 import { detectIntent, logTurn, patchTurn } from "@/lib/metrics";
 import { resolveModel } from "@/lib/router";
+import { findSimilar, saveEntry } from "@/lib/semantic-cache";
 import {
   loadConversations,
   logCost,
