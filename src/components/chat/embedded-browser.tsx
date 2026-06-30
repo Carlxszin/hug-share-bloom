@@ -20,6 +20,15 @@ import {
   subscribeBrowserCommands,
 } from "@/lib/browser-bus";
 
+function shouldOpenExternalAutomatically(url: string) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    return host === "youtu.be" || host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com");
+  } catch {
+    return false;
+  }
+}
+
 /**
  * In-app browser panel. Sites that send X-Frame-Options: DENY (Google,
  * YouTube watch pages, etc.) will refuse to render inside the iframe —
@@ -45,6 +54,10 @@ export function EmbeddedBrowser({
   const current = idx >= 0 ? stack[idx] : null;
 
   const go = useCallback((url: string) => {
+    if (shouldOpenExternalAutomatically(url) && autoOpenedFor.current !== url) {
+      autoOpenedFor.current = url;
+      openExternalTab(url);
+    }
     setStack((s) => {
       const trimmed = s.slice(0, Math.max(0, idx + 1));
       const next = [...trimmed, url];
@@ -114,21 +127,12 @@ export function EmbeddedBrowser({
     closeReservedExternalTabIfUnused();
   };
 
-  const shouldOpenExternalAutomatically = useCallback((url: string) => {
-    try {
-      const host = new URL(url).hostname.replace(/^www\./, "");
-      return host === "youtu.be" || host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com");
-    } catch {
-      return false;
-    }
-  }, []);
-
   useEffect(() => {
     if (!current || autoOpenedFor.current === current) return;
     if (!shouldOpenExternalAutomatically(current)) return;
     autoOpenedFor.current = current;
     openExternalTab(current);
-  }, [current, shouldOpenExternalAutomatically]);
+  }, [current]);
 
   // Auto-open in a real new tab when the embed gets blocked
   useEffect(() => {
