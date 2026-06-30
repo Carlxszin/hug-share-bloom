@@ -446,7 +446,7 @@ function ChatPage() {
     };
     const baseMessages = [...active.messages, userMsg];
     const isFirst = active.messages.length === 0;
-    let preparedTab = prepareAgentTab(text);
+    // Agent navigation happens in the in-app EmbeddedBrowser (no popups).
     updateConversation(active.id, (c) => ({
       ...c,
       title: isFirst ? text.slice(0, 48) : c.title,
@@ -514,16 +514,7 @@ function ChatPage() {
               ts: Date.now(),
             };
             if (step.openedUrl) {
-              try {
-                if (preparedTab && !preparedTab.closed) {
-                  preparedTab.location.href = step.openedUrl;
-                  preparedTab = null;
-                } else {
-                  window.open(step.openedUrl, "_blank", "noopener,noreferrer");
-                }
-              } catch {
-                /* popup blocked */
-              }
+              openInAppBrowser(step.openedUrl);
             }
             turnSteps.push(step);
             setAgentSteps((prev) => [...prev, step]);
