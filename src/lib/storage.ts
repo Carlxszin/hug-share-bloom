@@ -1,5 +1,19 @@
 import { DEFAULT_MODEL } from "./models";
 
+export type FileEdit = {
+  tool: "write" | "edit" | "delete";
+  path: string;
+  ok?: boolean;
+  error?: string;
+  isNew?: boolean;
+  old?: string;
+  new?: string;
+  line?: number;
+  preview?: string;
+  size?: number;
+  ts: number;
+};
+
 export type Message = {
   id: string;
   role: "user" | "assistant" | "system";
@@ -7,9 +21,13 @@ export type Message = {
   model?: string;
   inputTokens?: number;
   outputTokens?: number;
+  /** USD cost spent on this single message turn. */
+  costUSD?: number;
   createdAt: number;
   /** Builder-mode: list of files changed in this turn (for badge). */
   fileChanges?: { path: string; action: "write" | "edit" | "delete" }[];
+  /** Builder-mode: full edit log with diffs for this turn. */
+  edits?: FileEdit[];
 };
 
 export type ConversationKind = "chat" | "builder";
