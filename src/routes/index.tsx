@@ -422,6 +422,7 @@ function ChatPage() {
     setFocusFile(null);
     const controller = new AbortController();
     abortRef.current = controller;
+    const tBuilder0 = performance.now();
     try {
       const res = await fetch("/api/builder", {
         method: "POST",
