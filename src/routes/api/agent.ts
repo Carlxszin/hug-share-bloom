@@ -433,6 +433,7 @@ export const Route = createFileRoute("/api/agent")({
                         openedUrl: u,
                         result: args.reason ? String(args.reason) : "aba aberta",
                       };
+                    } else {
                       toolResult = `error: unknown tool ${name}`;
                       event = {
                         type: "action",
