@@ -187,6 +187,8 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
     rec.interimResults = true;
 
     rec.onresult = (e) => {
+      // Ignore anything captured while AI is speaking or in non-listening phases
+      if (speakingRef.current || phaseRef.current !== "listening") return;
       let interim = "";
       let finalText = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -196,6 +198,12 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
       }
       if (interim) setPartial(interim);
       if (finalText && !mutedRef.current) {
+        const norm = finalText.trim().toLowerCase();
+        // Drop echo of our own utterance (TTS bleeding into the mic)
+        const last = lastAssistantRef.current;
+        if (last && (last.includes(norm) || norm.includes(last.slice(0, Math.min(40, last.length))))) {
+          return;
+        }
         try { rec.stop(); } catch { /* noop */ }
         handleFinalRef.current(finalText);
       }
