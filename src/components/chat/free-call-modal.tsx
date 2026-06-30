@@ -167,11 +167,8 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
         setPhase("speaking");
         await speak(ack);
         return;
-      }
 
-      // (legacy block continues below)
-      // eslint-disable-next-line no-empty
-      {}
+
 
       setActive("llm");
       setPhase("thinking");
