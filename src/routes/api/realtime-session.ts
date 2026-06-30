@@ -36,19 +36,19 @@ export const Route = createFileRoute("/api/realtime-session")({
                   // VAD do servidor com corte rápido reduz tokens de áudio processados.
                   turn_detection: {
                     type: "server_vad",
-                    threshold: 0.6,
-                    prefix_padding_ms: 200,
-                    silence_duration_ms: 400,
+                    threshold: 0.7,
+                    prefix_padding_ms: 150,
+                    silence_duration_ms: 300,
                     create_response: true,
                     interrupt_response: true,
                   },
                 },
               },
-              // Limita ainda mais a resposta por turno (economia extra ~30-40%).
-              max_output_tokens: 250,
+              // Resposta ultra-curta por turno (economia máxima).
+              max_output_tokens: 150,
               instructions:
                 body.instructions ??
-                "Você é Aurora, assistente brasileira. Seja calorosa, direta e MUITO CONCISA: responda em 1-2 frases curtas em português. Só dê detalhes se pedirem explicitamente.",
+                "Você é Aurora, assistente brasileira. SEJA EXTREMAMENTE BREVE: responda em 1 frase curta (máx 15 palavras) em português. Nunca faça introduções nem repita a pergunta. Vá direto ao ponto. Só expanda se pedirem 'me explique mais'.",
             },
           }),
         });
