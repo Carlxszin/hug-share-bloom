@@ -3,7 +3,9 @@
 // stores {prompt, embedding, reply, model, ts} in localStorage.
 // On new prompt: cosine similarity ≥ THRESHOLD → returns cached reply (zero cost).
 
-const KEY = "octopus:semcache:v1";
+// v2: invalidated after persona "chefe" was introduced — old cached replies
+// without the persona were leaking back into greetings.
+const KEY = "octopus:semcache:v2";
 const MAX = 200;
 const THRESHOLD = 0.93;
 const TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
