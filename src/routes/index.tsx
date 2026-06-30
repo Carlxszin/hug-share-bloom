@@ -314,11 +314,65 @@ function ChatPage() {
           setCallOpen(true);
         }}
       />
-      <CallModal open={callOpen} onClose={() => setCallOpen(false)} rate={rate} voice="alloy" />
-      <FreeCallModal open={freeCallOpen} onClose={() => setFreeCallOpen(false)} />
     </div>
   );
 }
+
+function CallPicker({
+  open,
+  onClose,
+  onFree,
+  onPaid,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onFree: () => void;
+  onPaid: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm rounded-2xl border border-white/10 bg-background/95 backdrop-blur-xl p-6 shadow-2xl"
+      >
+        <h3 className="text-lg font-medium tracking-tight">Escolha o modelo</h3>
+        <p className="text-sm text-muted-foreground mt-1">Qual modo de chamada usar?</p>
+        <div className="mt-5 grid gap-3">
+          <button
+            onClick={onFree}
+            className="text-left p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-success/40 transition"
+          >
+            <div className="flex items-center gap-2 text-success font-medium">
+              <PhoneCall className="h-4 w-4" /> Grátis
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Web Speech (navegador) + Gemini via gateway. Sem custo.
+            </p>
+          </button>
+          <button
+            onClick={onPaid}
+            className="text-left p-4 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-primary/40 transition"
+          >
+            <div className="flex items-center gap-2 text-primary font-medium">
+              <Phone className="h-4 w-4" /> Pago
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              OpenAI Realtime (gpt-realtime-mini). Latência menor, custo em BRL.
+            </p>
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+
 
 function EmptyState({ onPick }: { onPick: (v: string) => void }) {
   const suggestions = [
