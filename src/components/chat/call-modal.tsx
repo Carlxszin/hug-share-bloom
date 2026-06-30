@@ -204,7 +204,6 @@ export function CallModal({
   );
 
   const start = useCallback(async () => {
-    reserveExternalTab();
     setStatus("connecting");
     setError(null);
     setUsage({ textIn: 0, textOut: 0, audioIn: 0, audioOut: 0 });
