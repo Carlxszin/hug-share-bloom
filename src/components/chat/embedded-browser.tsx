@@ -88,16 +88,21 @@ export function EmbeddedBrowser({
 
   const embedUrl = useMemo(() => {
     if (!current) return null;
-    // YouTube watch pages won't iframe — auto-convert to /embed/ID
+    // YouTube: convert to nocookie embed with origin to avoid Error 150/153
     try {
       const u = new URL(current);
-      if (
-        (u.hostname.endsWith("youtube.com") || u.hostname === "youtu.be") &&
-        (u.pathname === "/watch" || u.hostname === "youtu.be")
-      ) {
-        const id =
-          u.hostname === "youtu.be" ? u.pathname.slice(1) : u.searchParams.get("v");
-        if (id) return `https://www.youtube.com/embed/${id}?autoplay=1`;
+      const host = u.hostname.replace(/^www\./, "");
+      let id: string | null = null;
+      if (host === "youtu.be") id = u.pathname.slice(1).split("/")[0];
+      else if (host.endsWith("youtube.com")) {
+        if (u.pathname === "/watch") id = u.searchParams.get("v");
+        else if (u.pathname.startsWith("/shorts/")) id = u.pathname.split("/")[2];
+        else if (u.pathname.startsWith("/embed/")) id = u.pathname.split("/")[2];
+      }
+      if (id) {
+        const origin =
+          typeof window !== "undefined" ? encodeURIComponent(window.location.origin) : "";
+        return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0&modestbranding=1${origin ? `&origin=${origin}` : ""}`;
       }
     } catch {
       /* not a URL */
