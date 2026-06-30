@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Zap, Brain, Gauge } from "lucide-react";
+import { Gauge } from "lucide-react";
 
 export function ModelSelector({
   value,
@@ -43,14 +43,9 @@ function ModelMeta({ model }: { model: ModelInfo }) {
   return (
     <div className="hidden md:flex items-center gap-1.5">
       <Badge variant="secondary" className="gap-1">
-        <Zap className="h-3 w-3" /> {model.speed}
-      </Badge>
-      <Badge variant="secondary" className="gap-1">
-        <Brain className="h-3 w-3" /> {model.reasoning}
-      </Badge>
-      <Badge variant="secondary" className="gap-1">
         <Gauge className="h-3 w-3" /> {model.contextK}K ctx
       </Badge>
     </div>
   );
 }
+
