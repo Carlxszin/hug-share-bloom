@@ -267,6 +267,14 @@ function ChatPage() {
             <Button
               size="sm"
               variant="outline"
+              onClick={() => setFreeCallOpen(true)}
+              className="gap-1.5 rounded-full border-success/50 text-success hover:bg-success/10 hover:text-success"
+            >
+              <PhoneCall className="h-3.5 w-3.5" /> Grátis
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => setCallOpen(true)}
               className="gap-1.5 rounded-full"
             >
