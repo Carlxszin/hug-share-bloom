@@ -48,9 +48,15 @@ export function IntelligenceButton({ onClick }: { onClick: () => void }) {
 
 export function IntelligencePanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { items, rollup } = useMetrics();
-  const [tab, setTab] = useState<"overview" | "models" | "intents" | "raw">("overview");
+  const [tab, setTab] = useState<"overview" | "models" | "intents" | "variants" | "raw">("overview");
 
   const recent = useMemo(() => items.slice(-20).reverse(), [items]);
+  const variantStats = useMemo(() => computeVariantStats(), [items]);
+  const bestVariant = useMemo(() => {
+    const mature = variantStats.filter((v) => v.count >= 3);
+    if (!mature.length) return null;
+    return mature.reduce((a, b) => (b.score > a.score ? b : a));
+  }, [variantStats]);
 
   return (
     <AnimatePresence>
