@@ -10,6 +10,7 @@ import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { Composer } from "@/components/chat/composer";
 import { CostBar } from "@/components/chat/cost-bar";
 import { MessageBubble } from "@/components/chat/message-bubble";
+import { HtmlPreview } from "@/components/chat/html-preview";
 import { ModelSelector } from "@/components/chat/model-selector";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,7 @@ function ChatPage() {
   const [callOpen, setCallOpen] = useState(false);
   const [freeCallOpen, setFreeCallOpen] = useState(false);
   const [callPickerOpen, setCallPickerOpen] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -283,7 +285,7 @@ function ChatPage() {
           ) : (
             <div className="max-w-3xl mx-auto">
               {active.messages.map((m) => (
-                <MessageBubble key={m.id} message={m} />
+                <MessageBubble key={m.id} message={m} onPreviewHtml={setPreviewHtml} />
               ))}
             </div>
           )}
@@ -314,6 +316,7 @@ function ChatPage() {
           setCallOpen(true);
         }}
       />
+      <HtmlPreview html={previewHtml} onClose={() => setPreviewHtml(null)} />
     </div>
   );
 }
