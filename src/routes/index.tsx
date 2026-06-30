@@ -316,6 +316,7 @@ function ChatPage() {
           setCallOpen(true);
         }}
       />
+      <HtmlPreview html={previewHtml} onClose={() => setPreviewHtml(null)} />
     </div>
   );
 }
