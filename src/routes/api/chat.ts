@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { PERSONA_SYSTEM } from "@/lib/persona";
 
 type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
 type Body = { model: string; messages: ChatMessage[] };
