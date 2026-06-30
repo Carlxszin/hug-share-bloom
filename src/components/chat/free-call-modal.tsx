@@ -270,6 +270,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
 
   const start = useCallback(async () => {
     setError(null);
+    setFeed([]);
     const rec = buildRecognition();
     if (!rec) return;
     recRef.current = rec;
