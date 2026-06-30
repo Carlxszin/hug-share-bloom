@@ -20,6 +20,8 @@ import { ImageQueuePanel } from "@/components/chat/image-queue-panel";
 import { detectImagePrompt, enqueueImage } from "@/lib/image-queue";
 import { closeReservedExternalTabIfUnused, openInAppBrowser, reserveExternalTab } from "@/lib/browser-bus";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { IntelligenceButton, IntelligencePanel } from "@/components/chat/intelligence-panel";
+import { detectIntent, logTurn } from "@/lib/metrics";
 import {
   loadConversations,
   logCost,
@@ -63,6 +65,7 @@ function ChatPage() {
   const [callPickerOpen, setCallPickerOpen] = useState(false);
   const [newChatPickerOpen, setNewChatPickerOpen] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [iqOpen, setIqOpen] = useState(false);
   const [activity, setActivity] = useState<BuilderActivity[]>([]);
   const [focusFile, setFocusFile] = useState<string | null>(null);
   const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);
@@ -208,6 +211,7 @@ function ChatPage() {
     setLoading(true);
     const controller = new AbortController();
     abortRef.current = controller;
+    const t0 = performance.now();
 
     try {
       const res = await fetch("/api/chat", {
@@ -282,6 +286,19 @@ function ChatPage() {
         updatedAt: Date.now(),
       }));
       logCost({ usd: cost.total, inputTokens: inTok, outputTokens: outTok });
+      logTurn({
+        intent: detectIntent(text),
+        model: active.model,
+        mode: "paid",
+        tokensIn: inTok,
+        tokensOut: outTok,
+        latencyMs: Math.round(performance.now() - t0),
+        costUSD: cost.total,
+        costBRL: cost.total * rate,
+        toolCalls: [],
+        retryCount: 0,
+        truncated: false,
+      });
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         updateConversation(active.id, (c) => ({
@@ -653,6 +670,7 @@ function ChatPage() {
             >
               <Phone className="h-4 w-4" />
             </Button>
+            <IntelligenceButton onClick={() => setIqOpen(true)} />
             <ThemeToggle />
           </div>
         </header>
@@ -772,6 +790,7 @@ function ChatPage() {
         onPick={handlePick}
       />
       <HtmlPreview html={previewHtml} onClose={() => setPreviewHtml(null)} />
+      <IntelligencePanel open={iqOpen} onClose={() => setIqOpen(false)} />
     </div>
   );
 }
