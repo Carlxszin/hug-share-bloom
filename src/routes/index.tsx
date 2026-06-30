@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Phone, PhoneCall, Sparkles } from "lucide-react";
+import { Phone, PhoneCall, PenLine, Code2, Lightbulb, BookOpen } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CallModal } from "@/components/chat/call-modal";
