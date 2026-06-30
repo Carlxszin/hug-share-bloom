@@ -284,7 +284,7 @@ function ChatPage() {
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
           {active.messages.length === 0 ? (
-            <EmptyState />
+            <EmptyState onPick={setInput} />
           ) : (
             <div className="max-w-3xl mx-auto">
               {active.messages.map((m) => (
