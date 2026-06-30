@@ -258,6 +258,7 @@ function ChatPage() {
     }
 
 
+    const variant = pickVariant(intent);
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -265,6 +266,7 @@ function ChatPage() {
         body: JSON.stringify({
           model: routedModel,
           messages: baseMessages.map((m) => ({ role: m.role, content: m.content })),
+          systemAddon: variant.suffix,
         }),
         signal: controller.signal,
       });
