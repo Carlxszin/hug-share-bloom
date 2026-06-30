@@ -54,8 +54,26 @@ export function EmbeddedBrowser({
     const off = subscribeBrowserBus((url) => {
       go(url);
     });
+    const offCmd = subscribeBrowserCommands((cmd) => {
+      const iframe = iframeRef.current;
+      if (cmd === "close") {
+        setStack([]);
+        setIdx(-1);
+        setBlocked(false);
+      } else if (cmd === "pause" || cmd === "play") {
+        // YouTube IFrame API postMessage
+        if (iframe?.contentWindow) {
+          const func = cmd === "pause" ? "pauseVideo" : "playVideo";
+          iframe.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func, args: [] }),
+            "*",
+          );
+        }
+      }
+    });
     return () => {
       off();
+      offCmd();
     };
   }, [go]);
 
