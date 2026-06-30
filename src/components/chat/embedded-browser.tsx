@@ -244,15 +244,32 @@ export function EmbeddedBrowser({
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/95 text-center p-6">
                 <Globe className="h-8 w-8 text-muted-foreground" />
                 <p className="text-sm text-foreground max-w-xs">
-                  Este site bloqueia visualização embutida, chefe.
+                  Este site bloqueia visualização embutida, chefe. Abri em uma nova aba.
                 </p>
-                <Button
-                  size="sm"
-                  onClick={() => window.open(current, "_blank", "noopener,noreferrer")}
-                  className="gap-2"
-                >
-                  <ExternalLink className="h-4 w-4" /> Abrir em nova aba
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (!current) return;
+                      externalTabRef.current = window.open(current, "_blank", "noopener,noreferrer");
+                    }}
+                    className="gap-2"
+                  >
+                    <ExternalLink className="h-4 w-4" /> Reabrir
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      try { externalTabRef.current?.close(); } catch { /* ignore */ }
+                      externalTabRef.current = null;
+                      setStack([]); setIdx(-1); setBlocked(false);
+                    }}
+                    className="gap-2"
+                  >
+                    <X className="h-4 w-4" /> Fechar aba
+                  </Button>
+                </div>
               </div>
             )}
           </>
