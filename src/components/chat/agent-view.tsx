@@ -1,6 +1,27 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Globe, Camera, Loader2, Check, AlertTriangle, ExternalLink } from "lucide-react";
-import type { AgentStep } from "@/lib/storage";
+import {
+  Search,
+  Globe,
+  Camera,
+  Loader2,
+  Check,
+  AlertTriangle,
+  ExternalLink,
+  Database,
+  GitCompare,
+  Calculator,
+  Zap,
+} from "lucide-react";
+import type { AgentStep, AgentTool } from "@/lib/storage";
+
+const TOOL_META: Record<AgentTool, { icon: typeof Search; label: string }> = {
+  web_search: { icon: Search, label: "Pesquisa" },
+  fetch_page: { icon: Globe, label: "Leitura" },
+  screenshot: { icon: Camera, label: "Screenshot" },
+  extract_structured: { icon: Database, label: "Extração" },
+  compare_pages: { icon: GitCompare, label: "Comparação" },
+  calculate: { icon: Calculator, label: "Cálculo" },
+};
 
 export function AgentView({
   steps,
