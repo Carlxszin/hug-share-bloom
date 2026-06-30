@@ -421,11 +421,142 @@ function ChatPage() {
     }
   };
 
+  const onSubmitAgent = async () => {
+    if (!active || !input.trim() || loading) return;
+    const text = input.trim();
+    setInput("");
+
+    const userMsg: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: text,
+      createdAt: Date.now(),
+    };
+    const assistantMsg: Message = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: "Planejando…",
+      model: active.model,
+      createdAt: Date.now(),
+    };
+    const baseMessages = [...active.messages, userMsg];
+    const isFirst = active.messages.length === 0;
+    updateConversation(active.id, (c) => ({
+      ...c,
+      title: isFirst ? text.slice(0, 48) : c.title,
+      messages: [...baseMessages, assistantMsg],
+      updatedAt: Date.now(),
+    }));
+
+    setLoading(true);
+    setAgentSteps([]);
+    const turnSteps: AgentStep[] = [];
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const res = await fetch("/api/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: active.model,
+          messages: baseMessages.map((m) => ({ role: m.role, content: m.content })),
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) {
+        const err = await res.text();
+        updateConversation(active.id, (c) => ({
+          ...c,
+          messages: c.messages.map((m) =>
+            m.id === assistantMsg.id ? { ...m, content: `⚠️ Erro: ${err || res.status}` } : m,
+          ),
+        }));
+        return;
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let finalMsg = "";
+      let usage = { inputTokens: 0, outputTokens: 0, usd: 0 };
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let ev: Record<string, unknown>;
+          try {
+            ev = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          if (ev.type === "action") {
+            const step: AgentStep = {
+              id: crypto.randomUUID(),
+              tool: ev.tool as AgentStep["tool"],
+              input: (ev.input as Record<string, unknown>) ?? {},
+              ok: ev.ok as boolean | undefined,
+              error: ev.error as string | undefined,
+              result: ev.result as string | undefined,
+              screenshotUrl: ev.screenshotUrl as string | undefined,
+              links: ev.links as AgentStep["links"],
+              ts: Date.now(),
+            };
+            turnSteps.push(step);
+            setAgentSteps((prev) => [...prev, step]);
+          } else if (ev.type === "done") {
+            finalMsg = (ev.message as string) || "Tarefa concluída.";
+            usage = ev.usage as typeof usage;
+          } else if (ev.type === "error") {
+            finalMsg = `⚠️ ${ev.message as string}`;
+          }
+        }
+      }
+      updateConversation(active.id, (c) => ({
+        ...c,
+        messages: c.messages.map((m) =>
+          m.id === assistantMsg.id
+            ? {
+                ...m,
+                content: finalMsg || "Tarefa concluída.",
+                inputTokens: usage.inputTokens,
+                outputTokens: usage.outputTokens,
+                costUSD: usage.usd,
+                agentSteps: turnSteps,
+              }
+            : m,
+        ),
+        updatedAt: Date.now(),
+      }));
+      logCost({
+        usd: usage.usd,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+      });
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        updateConversation(active.id, (c) => ({
+          ...c,
+          messages: c.messages.map((m) =>
+            m.id === assistantMsg.id ? { ...m, content: `⚠️ ${(err as Error).message}` } : m,
+          ),
+        }));
+      }
+    } finally {
+      setLoading(false);
+      abortRef.current = null;
+    }
+  };
+
   if (!active) {
     return <div className="min-h-screen flex items-center justify-center">Carregando…</div>;
   }
 
   const isBuilder = active.kind === "builder";
+  const isAgent = active.kind === "agent";
 
   return (
     <div className="h-screen flex bg-background text-foreground">
