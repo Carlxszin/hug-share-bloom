@@ -89,7 +89,7 @@ export function Composer({
           className="relative group"
         >
           <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-primary/40 to-primary/10 opacity-0 group-focus-within:opacity-100 blur-md transition-opacity duration-500 pointer-events-none" />
-          <div className="relative rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] transition-colors group-focus-within:border-white/20">
+          <div className="relative rounded-2xl border border-white/10 bg-[#15151b] shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] transition-colors group-focus-within:border-white/20">
             <Textarea
               ref={ref}
               value={value}

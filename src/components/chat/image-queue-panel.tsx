@@ -41,7 +41,7 @@ export function ImageQueuePanel({
     return (
       <button
         onClick={() => setOpen(true)}
-        className={`${position} top-3 right-3 z-30 h-9 w-9 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 backdrop-blur-md flex items-center justify-center text-muted-foreground hover:text-foreground transition ${className}`}
+        className={`${position} top-3 right-3 z-30 h-9 w-9 rounded-full bg-card/90 hover:bg-card border border-white/10 flex items-center justify-center text-muted-foreground hover:text-foreground transition ${className}`}
         aria-label="Abrir gerador de imagens"
       >
         <ImageIcon className="h-4 w-4" />
@@ -60,7 +60,7 @@ export function ImageQueuePanel({
       layout
       initial={{ opacity: 0, y: -8, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      className={`${position} top-3 right-3 z-30 w-[300px] rounded-2xl border border-white/10 bg-background/85 backdrop-blur-xl shadow-2xl overflow-hidden ${className}`}
+      className={`${position} top-3 right-3 z-30 w-[300px] rounded-2xl border border-white/10 bg-card shadow-2xl overflow-hidden ${className}`}
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
         <div className="flex items-center gap-2 text-xs font-medium tracking-wide">

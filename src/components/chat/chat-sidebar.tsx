@@ -26,7 +26,7 @@ export function ChatSidebar({
   const sorted = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt);
 
   return (
-    <aside className="w-72 shrink-0 hidden md:flex flex-col h-full border-r border-white/5 bg-sidebar/60 backdrop-blur-2xl">
+    <aside className="w-72 shrink-0 hidden md:flex flex-col h-full border-r border-white/5 bg-sidebar">
       <div className="px-5 pt-6 pb-3 flex items-center gap-3">
         <motion.div
           initial={{ scale: 0.7, opacity: 0 }}

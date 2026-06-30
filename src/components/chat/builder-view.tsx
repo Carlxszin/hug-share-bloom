@@ -102,7 +102,7 @@ export function BuilderView({
 
   return (
     <div className="flex flex-col h-full bg-background/30 relative">
-      <div className="flex items-center justify-between px-4 h-11 border-b border-white/5 bg-background/40 backdrop-blur-xl shrink-0">
+      <div className="flex items-center justify-between px-4 h-11 border-b border-white/5 bg-background/90 shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-thin">
           <TabBtn
             active={tab === "preview"}
