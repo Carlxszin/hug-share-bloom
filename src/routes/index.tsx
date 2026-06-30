@@ -14,12 +14,14 @@ import { HtmlPreview } from "@/components/chat/html-preview";
 import { ModelSelector } from "@/components/chat/model-selector";
 import { NewChatPicker } from "@/components/chat/new-chat-picker";
 import { BuilderView } from "@/components/chat/builder-view";
+import { AgentView } from "@/components/chat/agent-view";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   loadConversations,
   logCost,
   newConversation,
   saveConversations,
+  type AgentStep,
   type Conversation,
   type ConversationKind,
   type Message,
@@ -56,6 +58,7 @@ function ChatPage() {
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [activity, setActivity] = useState<BuilderActivity[]>([]);
   const [focusFile, setFocusFile] = useState<string | null>(null);
+  const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -137,6 +140,7 @@ function ChatPage() {
   const onSubmit = async () => {
     if (!active || !input.trim() || loading) return;
     if (active.kind === "builder") return onSubmitBuilder();
+    if (active.kind === "agent") return onSubmitAgent();
     const text = input.trim();
     setInput("");
 
@@ -417,11 +421,142 @@ function ChatPage() {
     }
   };
 
+  const onSubmitAgent = async () => {
+    if (!active || !input.trim() || loading) return;
+    const text = input.trim();
+    setInput("");
+
+    const userMsg: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: text,
+      createdAt: Date.now(),
+    };
+    const assistantMsg: Message = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: "Planejando…",
+      model: active.model,
+      createdAt: Date.now(),
+    };
+    const baseMessages = [...active.messages, userMsg];
+    const isFirst = active.messages.length === 0;
+    updateConversation(active.id, (c) => ({
+      ...c,
+      title: isFirst ? text.slice(0, 48) : c.title,
+      messages: [...baseMessages, assistantMsg],
+      updatedAt: Date.now(),
+    }));
+
+    setLoading(true);
+    setAgentSteps([]);
+    const turnSteps: AgentStep[] = [];
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const res = await fetch("/api/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: active.model,
+          messages: baseMessages.map((m) => ({ role: m.role, content: m.content })),
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) {
+        const err = await res.text();
+        updateConversation(active.id, (c) => ({
+          ...c,
+          messages: c.messages.map((m) =>
+            m.id === assistantMsg.id ? { ...m, content: `⚠️ Erro: ${err || res.status}` } : m,
+          ),
+        }));
+        return;
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let finalMsg = "";
+      let usage = { inputTokens: 0, outputTokens: 0, usd: 0 };
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let ev: Record<string, unknown>;
+          try {
+            ev = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          if (ev.type === "action") {
+            const step: AgentStep = {
+              id: crypto.randomUUID(),
+              tool: ev.tool as AgentStep["tool"],
+              input: (ev.input as Record<string, unknown>) ?? {},
+              ok: ev.ok as boolean | undefined,
+              error: ev.error as string | undefined,
+              result: ev.result as string | undefined,
+              screenshotUrl: ev.screenshotUrl as string | undefined,
+              links: ev.links as AgentStep["links"],
+              ts: Date.now(),
+            };
+            turnSteps.push(step);
+            setAgentSteps((prev) => [...prev, step]);
+          } else if (ev.type === "done") {
+            finalMsg = (ev.message as string) || "Tarefa concluída.";
+            usage = ev.usage as typeof usage;
+          } else if (ev.type === "error") {
+            finalMsg = `⚠️ ${ev.message as string}`;
+          }
+        }
+      }
+      updateConversation(active.id, (c) => ({
+        ...c,
+        messages: c.messages.map((m) =>
+          m.id === assistantMsg.id
+            ? {
+                ...m,
+                content: finalMsg || "Tarefa concluída.",
+                inputTokens: usage.inputTokens,
+                outputTokens: usage.outputTokens,
+                costUSD: usage.usd,
+                agentSteps: turnSteps,
+              }
+            : m,
+        ),
+        updatedAt: Date.now(),
+      }));
+      logCost({
+        usd: usage.usd,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+      });
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        updateConversation(active.id, (c) => ({
+          ...c,
+          messages: c.messages.map((m) =>
+            m.id === assistantMsg.id ? { ...m, content: `⚠️ ${(err as Error).message}` } : m,
+          ),
+        }));
+      }
+    } finally {
+      setLoading(false);
+      abortRef.current = null;
+    }
+  };
+
   if (!active) {
     return <div className="min-h-screen flex items-center justify-center">Carregando…</div>;
   }
 
   const isBuilder = active.kind === "builder";
+  const isAgent = active.kind === "agent";
 
   return (
     <div className="h-screen flex bg-background text-foreground">
@@ -444,6 +579,11 @@ function ChatPage() {
             {isBuilder && (
               <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-primary font-semibold bg-primary/10 border border-primary/20 rounded-full px-2.5 py-1">
                 <Sparkles className="h-3 w-3" /> Builder
+              </span>
+            )}
+            {isAgent && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-success font-semibold bg-success/10 border border-success/20 rounded-full px-2.5 py-1">
+                <Sparkles className="h-3 w-3" /> Agente
               </span>
             )}
           </div>
@@ -504,6 +644,33 @@ function ChatPage() {
                 streaming={loading}
               />
 
+            </div>
+          </div>
+        ) : isAgent ? (
+          <div className="relative flex-1 min-h-0 flex z-10">
+            <div className="flex flex-col flex-1 min-w-0 border-r border-white/5">
+              <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
+                {active.messages.length === 0 ? (
+                  <AgentEmpty onPick={setInput} />
+                ) : (
+                  <div className="max-w-3xl mx-auto">
+                    {active.messages.map((m) => (
+                      <MessageBubble key={m.id} message={m} rate={rate} onPreviewHtml={setPreviewHtml} />
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Composer
+                value={input}
+                onChange={setInput}
+                onSubmit={onSubmit}
+                onStop={onStop}
+                loading={loading}
+                onCall={() => setCallPickerOpen(true)}
+              />
+            </div>
+            <div className="w-[40%] min-w-[320px] max-w-[480px]">
+              <AgentView steps={agentSteps} streaming={loading} />
             </div>
           </div>
         ) : (
@@ -707,6 +874,50 @@ function EmptyState({ onPick }: { onPick: (v: string) => void }) {
               </motion.button>
             );
           })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AgentEmpty({ onPick }: { onPick: (v: string) => void }) {
+  const ideas = [
+    "Pesquise os 3 notebooks mais vendidos abaixo de R$ 4000 e me dê uma tabela comparativa",
+    "Resuma as 5 principais notícias de tecnologia de hoje no Brasil",
+    "Abra o site exemplo.com e tire um screenshot da home",
+    "Compare os preços do iPhone 15 em 3 lojas brasileiras",
+  ];
+  return (
+    <div className="h-full flex flex-col items-center justify-center px-6 py-12 text-center">
+      <div className="max-w-md w-full space-y-6">
+        <div className="space-y-2">
+          <motion.h2
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-3xl tracking-tight"
+            style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontWeight: 600 }}
+          >
+            Qual tarefa devo executar?
+          </motion.h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            O Agente pesquisa na web, lê páginas e captura screenshots de forma autônoma.
+          </p>
+        </div>
+        <div className="grid gap-2 text-left">
+          {ideas.map((t, i) => (
+            <motion.button
+              key={t}
+              type="button"
+              onClick={() => onPick(t)}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 + i * 0.05 }}
+              whileHover={{ x: 2 }}
+              className="p-3 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-success/30 transition text-xs text-foreground/90"
+            >
+              {t}
+            </motion.button>
+          ))}
         </div>
       </div>
     </div>

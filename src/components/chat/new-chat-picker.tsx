@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, Code2, Sparkles, Zap, Brain } from "lucide-react";
+import { MessageSquare, Code2, Sparkles, Zap, Brain, Bot } from "lucide-react";
 import { MODELS } from "@/lib/models";
 
 const BUILDER_MODELS = ["gpt-5", "gpt-4o"];
@@ -11,7 +11,7 @@ export function NewChatPicker({
 }: {
   open: boolean;
   onClose: () => void;
-  onPick: (kind: "chat" | "builder", model: string) => void;
+  onPick: (kind: "chat" | "builder" | "agent", model: string) => void;
 }) {
   return (
     <AnimatePresence>
@@ -50,6 +50,28 @@ export function NewChatPicker({
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Pesquisa, escrita, dúvidas, brainstorm — usa{" "}
                       <span className="font-mono text-foreground/80">gpt-5-mini</span>.
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => onPick("agent", "gpt-4o-mini")}
+                className="text-left p-4 rounded-xl border border-success/20 bg-gradient-to-br from-success/[0.05] to-transparent hover:border-success/40 transition group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-success/10 border border-success/20 flex items-center justify-center text-success">
+                    <Bot className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-sm flex items-center gap-1.5">
+                      Agente Executor
+                      <span className="text-[9px] uppercase tracking-wider bg-success/15 text-success px-1.5 py-0.5 rounded-full font-semibold">
+                        novo
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Pesquisa na web, lê páginas e tira screenshots — autônomo, ~R$ 0,01/tarefa.
                     </p>
                   </div>
                 </div>
