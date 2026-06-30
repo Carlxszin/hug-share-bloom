@@ -115,6 +115,17 @@ function StepCard({ step }: { step: AgentStep }) {
           {step.error && (
             <div className="text-[11px] text-destructive mt-1">{step.error}</div>
           )}
+          {step.openedUrl && (
+            <a
+              href={step.openedUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+            >
+              <ExternalLink className="h-2.5 w-2.5" />
+              Abrir manualmente
+            </a>
+          )}
           {step.links && step.links.length > 0 && (
             <ul className="mt-2 space-y-1">
               {step.links.slice(0, 5).map((l, i) => (
