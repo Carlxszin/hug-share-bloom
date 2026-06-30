@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Phone, PhoneOff, Mic, MicOff, Loader2, Activity } from "lucide-react";
+import { Phone, PhoneOff, Mic, MicOff, Loader2, Activity, Search, ExternalLink, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { realtimeCostUSD } from "@/lib/models";
 
 type Usage = { textIn: number; textOut: number; audioIn: number; audioOut: number };
+type FeedItem =
+  | { kind: "user"; text: string }
+  | { kind: "assistant"; text: string }
+  | { kind: "search"; query: string; count?: number }
+  | { kind: "open"; url: string }
+  | { kind: "tool-error"; text: string };
 
 export function CallModal({
   open,
@@ -22,7 +28,7 @@ export function CallModal({
   const [muted, setMuted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [usage, setUsage] = useState<Usage>({ textIn: 0, textOut: 0, audioIn: 0, audioOut: 0 });
-  const [transcript, setTranscript] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
+  const [feed, setFeed] = useState<FeedItem[]>([]);
   const [level, setLevel] = useState(0);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -32,6 +38,17 @@ export function CallModal({
   const startTimeRef = useRef<number>(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const rafRef = useRef<number | null>(null);
+  const feedScrollRef = useRef<HTMLDivElement | null>(null);
+  // Buffer accumulators for streaming function_call_arguments
+  const fnBufRef = useRef<Map<string, { name: string; args: string; call_id: string }>>(new Map());
+
+  const pushFeed = useCallback((item: FeedItem) => {
+    setFeed((p) => [...p, item]);
+  }, []);
+
+  useEffect(() => {
+    feedScrollRef.current?.scrollTo({ top: feedScrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [feed]);
 
   const stop = useCallback(() => {
     pcRef.current?.getSenders().forEach((s) => s.track?.stop());
@@ -47,11 +64,130 @@ export function CallModal({
     setLevel(0);
   }, []);
 
+  const sendEvent = (ev: Record<string, unknown>) => {
+    const dc = dcRef.current;
+    if (!dc || dc.readyState !== "open") return;
+    dc.send(JSON.stringify(ev));
+  };
+
+  const executeTool = useCallback(
+    async (name: string, args: Record<string, unknown>): Promise<string> => {
+      if (name === "open_url") {
+        const url = String(args.url ?? "");
+        if (!url) return JSON.stringify({ error: "url ausente" });
+        try {
+          window.open(url, "_blank", "noopener,noreferrer");
+          pushFeed({ kind: "open", url });
+          return JSON.stringify({ ok: true, opened: url });
+        } catch (e) {
+          pushFeed({ kind: "tool-error", text: `Falha ao abrir ${url}` });
+          return JSON.stringify({ error: (e as Error).message });
+        }
+      }
+      if (name === "web_search") {
+        const query = String(args.query ?? "");
+        pushFeed({ kind: "search", query });
+        try {
+          const res = await fetch("/api/web-search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query }),
+          });
+          if (!res.ok) throw new Error(await res.text());
+          const data = (await res.json()) as {
+            results: { title: string; url: string; snippet?: string }[];
+          };
+          setFeed((p) => {
+            const copy = [...p];
+            for (let i = copy.length - 1; i >= 0; i--) {
+              const it = copy[i];
+              if (it.kind === "search" && it.query === query && it.count === undefined) {
+                copy[i] = { ...it, count: data.results.length };
+                break;
+              }
+            }
+            return copy;
+          });
+          return JSON.stringify({ query, results: data.results.slice(0, 6) });
+        } catch (e) {
+          pushFeed({ kind: "tool-error", text: `Pesquisa falhou: ${(e as Error).message}` });
+          return JSON.stringify({ error: (e as Error).message });
+        }
+      }
+      return JSON.stringify({ error: `tool desconhecida: ${name}` });
+    },
+    [pushFeed],
+  );
+
+  const handleEvent = useCallback(
+    async (ev: Record<string, unknown>) => {
+      const type = ev.type as string;
+      if (type === "response.done") {
+        const response = ev.response as
+          | {
+              usage?: {
+                input_token_details?: Record<string, number>;
+                output_token_details?: Record<string, number>;
+              };
+            }
+          | undefined;
+        const u = response?.usage;
+        if (u) {
+          setUsage((prev) => ({
+            textIn: prev.textIn + (u.input_token_details?.text_tokens ?? 0),
+            textOut: prev.textOut + (u.output_token_details?.text_tokens ?? 0),
+            audioIn: prev.audioIn + (u.input_token_details?.audio_tokens ?? 0),
+            audioOut: prev.audioOut + (u.output_token_details?.audio_tokens ?? 0),
+          }));
+        }
+      } else if (type === "conversation.item.input_audio_transcription.completed") {
+        const text = (ev.transcript as string) ?? "";
+        if (text.trim()) pushFeed({ kind: "user", text });
+      } else if (type === "response.audio_transcript.done") {
+        const text = (ev.transcript as string) ?? "";
+        if (text.trim()) pushFeed({ kind: "assistant", text });
+      } else if (type === "response.output_item.added") {
+        const item = ev.item as { id?: string; type?: string; name?: string; call_id?: string } | undefined;
+        if (item?.type === "function_call" && item.id && item.name && item.call_id) {
+          fnBufRef.current.set(item.id, { name: item.name, args: "", call_id: item.call_id });
+        }
+      } else if (type === "response.function_call_arguments.delta") {
+        const itemId = ev.item_id as string;
+        const delta = (ev.delta as string) ?? "";
+        const buf = fnBufRef.current.get(itemId);
+        if (buf) buf.args += delta;
+      } else if (type === "response.function_call_arguments.done") {
+        const itemId = ev.item_id as string;
+        const callId = (ev.call_id as string) ?? fnBufRef.current.get(itemId)?.call_id;
+        const name = (ev.name as string) ?? fnBufRef.current.get(itemId)?.name ?? "";
+        const argsStr = (ev.arguments as string) ?? fnBufRef.current.get(itemId)?.args ?? "{}";
+        fnBufRef.current.delete(itemId);
+        let parsed: Record<string, unknown> = {};
+        try {
+          parsed = JSON.parse(argsStr || "{}");
+        } catch {
+          /* keep empty */
+        }
+        const output = await executeTool(name, parsed);
+        sendEvent({
+          type: "conversation.item.create",
+          item: {
+            type: "function_call_output",
+            call_id: callId,
+            output,
+          },
+        });
+        sendEvent({ type: "response.create" });
+      }
+    },
+    [executeTool, pushFeed],
+  );
+
   const start = useCallback(async () => {
     setStatus("connecting");
     setError(null);
     setUsage({ textIn: 0, textOut: 0, audioIn: 0, audioOut: 0 });
-    setTranscript([]);
+    setFeed([]);
     setElapsed(0);
 
     try {
@@ -134,31 +270,7 @@ export function CallModal({
       setStatus("error");
       stop();
     }
-  }, [voice, stop]);
-
-  const handleEvent = (ev: Record<string, unknown>) => {
-    const type = ev.type as string;
-    if (type === "response.done") {
-      const response = ev.response as
-        | { usage?: { input_token_details?: Record<string, number>; output_token_details?: Record<string, number> } }
-        | undefined;
-      const u = response?.usage;
-      if (u) {
-        setUsage((prev) => ({
-          textIn: prev.textIn + (u.input_token_details?.text_tokens ?? 0),
-          textOut: prev.textOut + (u.output_token_details?.text_tokens ?? 0),
-          audioIn: prev.audioIn + (u.input_token_details?.audio_tokens ?? 0),
-          audioOut: prev.audioOut + (u.output_token_details?.audio_tokens ?? 0),
-        }));
-      }
-    } else if (type === "conversation.item.input_audio_transcription.completed") {
-      const text = (ev.transcript as string) ?? "";
-      if (text.trim()) setTranscript((p) => [...p, { role: "user", text }]);
-    } else if (type === "response.audio_transcript.done") {
-      const text = (ev.transcript as string) ?? "";
-      if (text.trim()) setTranscript((p) => [...p, { role: "assistant", text }]);
-    }
-  };
+  }, [voice, stop, handleEvent]);
 
   useEffect(() => {
     if (status !== "live") return;
@@ -200,125 +312,198 @@ export function CallModal({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0 }}
             transition={{ type: "spring", stiffness: 240, damping: 24 }}
-            className="w-full max-w-lg rounded-3xl border bg-card text-card-foreground shadow-2xl overflow-hidden"
+            className="w-full max-w-4xl rounded-3xl border bg-card text-card-foreground shadow-2xl overflow-hidden grid md:grid-cols-[1fr_360px]"
           >
-            <div className="relative px-6 pt-8 pb-6 bg-gradient-to-br from-primary/10 via-transparent to-accent/10">
-              <div className="flex flex-col items-center text-center">
-                <motion.div
-                  className="relative h-32 w-32 rounded-full bg-primary/15 flex items-center justify-center"
-                  animate={
-                    status === "live"
-                      ? { scale: [1, 1 + level * 0.15, 1] }
-                      : { scale: 1 }
-                  }
-                  transition={{ duration: 0.2 }}
-                >
-                  {status === "live" && (
-                    <>
-                      <motion.div
-                        className="absolute inset-0 rounded-full bg-primary/20"
-                        animate={{ scale: [1, 1.4, 1.8], opacity: [0.6, 0.2, 0] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
-                      />
-                      <motion.div
-                        className="absolute inset-0 rounded-full bg-primary/15"
-                        animate={{ scale: [1, 1.4, 1.8], opacity: [0.5, 0.15, 0] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.6 }}
-                      />
-                    </>
-                  )}
-                  <div className="relative h-24 w-24 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-3xl font-semibold shadow-lg">
-                    A
-                  </div>
-                </motion.div>
-                <h2 className="mt-5 text-xl font-semibold tracking-tight">Octopus</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {status === "idle" && "Pronto para conversar por voz"}
-                  {status === "connecting" && "Conectando…"}
-                  {status === "live" && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-                      Em chamada · {mm}:{ss}
-                    </span>
-                  )}
-                  {status === "error" && (
-                    <span className="text-destructive">{error ?? "Erro de conexão"}</span>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            {status === "live" && (
-              <div className="px-6 py-4 border-t border-b bg-muted/30 grid grid-cols-3 gap-3 text-xs">
-                <CostStat label="Áudio in" usd={cost.audioIn} rate={rate} />
-                <CostStat label="Áudio out" usd={cost.audioOut} rate={rate} />
-                <CostStat label="Total" usd={cost.total} rate={rate} highlight />
-              </div>
-            )}
-
-            {transcript.length > 0 && (
-              <div className="max-h-40 overflow-y-auto scrollbar-thin px-6 py-3 text-sm space-y-2 border-b">
-                {transcript.slice(-6).map((m, i) => (
-                  <div key={i} className="flex gap-2">
-                    <span className="text-[10px] uppercase font-medium text-muted-foreground w-12 shrink-0 pt-0.5">
-                      {m.role === "user" ? "Você" : "Octopus"}
-                    </span>
-                    <span className="text-foreground">{m.text}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="p-6 flex items-center justify-center gap-3">
-              {status === "live" ? (
-                <>
-                  <Button
-                    size="lg"
-                    variant={muted ? "secondary" : "outline"}
-                    onClick={toggleMute}
-                    className="h-14 w-14 rounded-full p-0"
-                    aria-label={muted ? "Ativar microfone" : "Silenciar"}
+            {/* LEFT: Call panel */}
+            <div className="flex flex-col">
+              <div className="relative px-6 pt-8 pb-6 bg-gradient-to-br from-primary/10 via-transparent to-accent/10">
+                <div className="flex flex-col items-center text-center">
+                  <motion.div
+                    className="relative h-32 w-32 rounded-full bg-primary/15 flex items-center justify-center"
+                    animate={
+                      status === "live"
+                        ? { scale: [1, 1 + level * 0.15, 1] }
+                        : { scale: 1 }
+                    }
+                    transition={{ duration: 0.2 }}
                   >
-                    {muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="destructive"
-                    onClick={() => {
-                      stop();
-                      onClose();
-                    }}
-                    className="h-14 px-6 rounded-full gap-2"
-                  >
-                    <PhoneOff className="h-5 w-5" /> Encerrar
-                  </Button>
-                  <div className="h-14 w-14 rounded-full border flex items-center justify-center text-muted-foreground">
-                    <Activity className="h-5 w-5" style={{ opacity: 0.4 + level * 0.6 }} />
-                  </div>
-                </>
-              ) : status === "connecting" ? (
-                <Button size="lg" disabled className="h-14 px-8 rounded-full gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin" /> Conectando
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    size="lg"
-                    onClick={start}
-                    className="h-14 px-8 rounded-full gap-2 shadow-lg"
-                  >
-                    <Phone className="h-5 w-5" /> Iniciar chamada
-                  </Button>
-                  <Button size="lg" variant="ghost" onClick={onClose} className="h-14 rounded-full">
-                    Fechar
-                  </Button>
-                </>
+                    {status === "live" && (
+                      <>
+                        <motion.div
+                          className="absolute inset-0 rounded-full bg-primary/20"
+                          animate={{ scale: [1, 1.4, 1.8], opacity: [0.6, 0.2, 0] }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                        />
+                        <motion.div
+                          className="absolute inset-0 rounded-full bg-primary/15"
+                          animate={{ scale: [1, 1.4, 1.8], opacity: [0.5, 0.15, 0] }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.6 }}
+                        />
+                      </>
+                    )}
+                    <div className="relative h-24 w-24 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-3xl font-semibold shadow-lg">
+                      O
+                    </div>
+                  </motion.div>
+                  <h2 className="mt-5 text-xl font-semibold tracking-tight">Octopus</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {status === "idle" && "Pronto para conversar por voz"}
+                    {status === "connecting" && "Conectando…"}
+                    {status === "live" && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                        Em chamada · {mm}:{ss}
+                      </span>
+                    )}
+                    {status === "error" && (
+                      <span className="text-destructive">{error ?? "Erro de conexão"}</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {status === "live" && (
+                <div className="px-6 py-4 border-t border-b bg-muted/30 grid grid-cols-3 gap-3 text-xs">
+                  <CostStat label="Áudio in" usd={cost.audioIn} rate={rate} />
+                  <CostStat label="Áudio out" usd={cost.audioOut} rate={rate} />
+                  <CostStat label="Total" usd={cost.total} rate={rate} highlight />
+                </div>
               )}
+
+              <div className="mt-auto p-6 flex items-center justify-center gap-3">
+                {status === "live" ? (
+                  <>
+                    <Button
+                      size="lg"
+                      variant={muted ? "secondary" : "outline"}
+                      onClick={toggleMute}
+                      className="h-14 w-14 rounded-full p-0"
+                      aria-label={muted ? "Ativar microfone" : "Silenciar"}
+                    >
+                      {muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                    </Button>
+                    <Button
+                      size="lg"
+                      variant="destructive"
+                      onClick={() => {
+                        stop();
+                        onClose();
+                      }}
+                      className="h-14 px-6 rounded-full gap-2"
+                    >
+                      <PhoneOff className="h-5 w-5" /> Encerrar
+                    </Button>
+                    <div className="h-14 w-14 rounded-full border flex items-center justify-center text-muted-foreground">
+                      <Activity className="h-5 w-5" style={{ opacity: 0.4 + level * 0.6 }} />
+                    </div>
+                  </>
+                ) : status === "connecting" ? (
+                  <Button size="lg" disabled className="h-14 px-8 rounded-full gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" /> Conectando
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      size="lg"
+                      onClick={start}
+                      className="h-14 px-8 rounded-full gap-2 shadow-lg"
+                    >
+                      <Phone className="h-5 w-5" /> Iniciar chamada
+                    </Button>
+                    <Button size="lg" variant="ghost" onClick={onClose} className="h-14 rounded-full">
+                      Fechar
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
+
+            {/* RIGHT: Live activity feed */}
+            <SideFeed feed={feed} scrollRef={feedScrollRef} />
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+export function SideFeed({
+  feed,
+  scrollRef,
+}: {
+  feed: FeedItem[];
+  scrollRef: React.MutableRefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <div className="border-t md:border-t-0 md:border-l bg-muted/20 flex flex-col max-h-[640px] md:max-h-none">
+      <div className="px-4 py-3 border-b flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground font-medium">
+        <MessageSquare className="h-3.5 w-3.5" /> Chat ao vivo
+      </div>
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto scrollbar-thin px-4 py-3 space-y-2 text-sm min-h-[280px] md:min-h-[400px]"
+      >
+        {feed.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic">
+            As pesquisas, sites abertos e a transcrição aparecem aqui em tempo real.
+          </p>
+        ) : (
+          feed.map((it, i) => <FeedRow key={i} item={it} />)
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FeedRow({ item }: { item: FeedItem }) {
+  if (item.kind === "user") {
+    return (
+      <div className="flex gap-2">
+        <span className="text-[10px] uppercase font-semibold text-muted-foreground w-14 shrink-0 pt-0.5">
+          Você
+        </span>
+        <span className="text-foreground">{item.text}</span>
+      </div>
+    );
+  }
+  if (item.kind === "assistant") {
+    return (
+      <div className="flex gap-2">
+        <span className="text-[10px] uppercase font-semibold text-primary w-14 shrink-0 pt-0.5">
+          Octopus
+        </span>
+        <span className="text-foreground">{item.text}</span>
+      </div>
+    );
+  }
+  if (item.kind === "search") {
+    return (
+      <div className="rounded-md border border-primary/20 bg-primary/5 px-2.5 py-1.5 flex items-center gap-2 text-xs">
+        <Search className="h-3.5 w-3.5 text-primary shrink-0" />
+        <span className="font-medium truncate">{item.query}</span>
+        <span className="ml-auto text-muted-foreground shrink-0">
+          {item.count === undefined ? "…" : `${item.count} resultados`}
+        </span>
+      </div>
+    );
+  }
+  if (item.kind === "open") {
+    return (
+      <div className="rounded-md border border-success/30 bg-success/10 px-2.5 py-1.5 flex items-center gap-2 text-xs">
+        <ExternalLink className="h-3.5 w-3.5 text-success shrink-0" />
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="truncate text-foreground hover:underline"
+        >
+          {item.url}
+        </a>
+      </div>
+    );
+  }
+  return (
+    <div className="text-xs text-destructive">{item.text}</div>
   );
 }
 

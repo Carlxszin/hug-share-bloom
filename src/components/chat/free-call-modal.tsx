@@ -2,6 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Phone, PhoneOff, Mic, MicOff, Loader2, Sparkles, CheckCircle2, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SideFeed } from "./call-modal";
+
+type FeedItem =
+  | { kind: "user"; text: string }
+  | { kind: "assistant"; text: string }
+  | { kind: "search"; query: string; count?: number }
+  | { kind: "open"; url: string }
+  | { kind: "tool-error"; text: string };
+
 
 type Turn = { role: "user" | "assistant"; text: string };
 type Phase = "idle" | "listening" | "thinking" | "speaking" | "error";
@@ -34,6 +43,8 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
   const [error, setError] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
   const [transcript, setTranscript] = useState<Turn[]>([]);
+  const [feed, setFeed] = useState<FeedItem[]>([]);
+  const feedScrollRef = useRef<HTMLDivElement | null>(null);
   const [partial, setPartial] = useState("");
   const [active, setActive] = useState<"stt" | "llm" | "tts" | null>(null);
   const [supported, setSupported] = useState(true);
@@ -134,6 +145,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
         return;
       }
       setTranscript((p) => [...p, { role: "user", text: clean }]);
+      setFeed((p) => [...p, { kind: "user", text: clean }]);
       setPartial("");
       setActive("llm");
       setPhase("thinking");
@@ -162,31 +174,18 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
             } catch {
               /* popup blocker */
             }
+            setFeed((p) => [...p, { kind: "open", url: o.url }]);
           }
         }
 
-        // Surface searches in transcript
         if (searches && searches.length) {
           for (const s of searches) {
-            setTranscript((p) => [
-              ...p,
-              { role: "assistant", text: `🔍 Pesquisei: "${s.query}" (${s.count} resultados)` },
-            ]);
+            setFeed((p) => [...p, { kind: "search", query: s.query, count: s.count }]);
           }
-        }
-        if (opens && opens.length) {
-          setTranscript((p) => [
-            ...p,
-            {
-              role: "assistant",
-              text: `🌐 Abri ${opens.length} aba${opens.length > 1 ? "s" : ""}: ${opens
-                .map((o) => o.url)
-                .join(", ")}`,
-            },
-          ]);
         }
 
         setTranscript((p) => [...p, { role: "assistant", text: reply }]);
+        setFeed((p) => [...p, { kind: "assistant", text: reply }]);
 
         setActive("tts");
         setPhase("speaking");
@@ -271,6 +270,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
 
   const start = useCallback(async () => {
     setError(null);
+    setFeed([]);
     const rec = buildRecognition();
     if (!rec) return;
     recRef.current = rec;
@@ -279,6 +279,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
     // 1) Octopus fala primeiro, tratando o usuário como chefe
     const greeting = "Olá, chefe! Octopus na escuta. Como posso te ajudar?";
     setTranscript((p) => [...p, { role: "assistant", text: greeting }]);
+    setFeed((p) => [...p, { kind: "assistant", text: greeting }]);
     setActive("tts");
     setPhase("speaking");
     await speak(greeting);
@@ -357,8 +358,9 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0 }}
             transition={{ type: "spring", stiffness: 240, damping: 24 }}
-            className="w-full max-w-lg rounded-3xl border bg-card text-card-foreground shadow-2xl overflow-hidden"
+            className="w-full max-w-4xl rounded-3xl border bg-card text-card-foreground shadow-2xl overflow-hidden grid md:grid-cols-[1fr_360px]"
           >
+            <div className="flex flex-col">
             <div className="relative px-6 pt-8 pb-6 bg-gradient-to-br from-success/15 via-transparent to-primary/10">
               <div className="flex flex-col items-center text-center">
                 <motion.div
@@ -454,20 +456,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
               </div>
             </div>
 
-            {transcript.length > 0 && (
-              <div className="max-h-40 overflow-y-auto scrollbar-thin px-6 py-3 text-sm space-y-2 border-b">
-                {transcript.slice(-6).map((m, i) => (
-                  <div key={i} className="flex gap-2">
-                    <span className="text-[10px] uppercase font-medium text-muted-foreground w-12 shrink-0 pt-0.5">
-                      {m.role === "user" ? "Você" : "Octopus"}
-                    </span>
-                    <span className="text-foreground">{m.text}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="p-6 flex items-center justify-center gap-3">
+            <div className="mt-auto p-6 flex items-center justify-center gap-3">
               {phase === "idle" || phase === "error" ? (
                 <>
                   <Button
@@ -517,12 +506,15 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
                 </>
               )}
             </div>
+            </div>
+            <SideFeed feed={feed} scrollRef={feedScrollRef} />
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
   );
 }
+
 
 function ProviderChip({
   label, name, free, active,

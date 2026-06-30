@@ -32,9 +32,7 @@ export const Route = createFileRoute("/api/realtime-session")({
               audio: {
                 output: { voice: body.voice ?? "alloy" },
                 input: {
-                  // Sem transcrição de áudio de entrada (Whisper é cobrado à parte).
                   transcription: null,
-                  // VAD do servidor com corte rápido reduz tokens de áudio processados.
                   turn_detection: {
                     type: "server_vad",
                     threshold: 0.7,
@@ -45,9 +43,38 @@ export const Route = createFileRoute("/api/realtime-session")({
                   },
                 },
               },
-              // Resposta ultra-curta por turno (economia máxima).
-              max_output_tokens: 150,
-              instructions: body.instructions ?? PERSONA_SYSTEM_VOICE,
+              max_output_tokens: 200,
+              tools: [
+                {
+                  type: "function",
+                  name: "web_search",
+                  description:
+                    "Pesquisa rápida na web (DuckDuckGo). Use sempre que o chefe pedir informação atual, preço, notícia ou algo que você não sabe com certeza.",
+                  parameters: {
+                    type: "object",
+                    properties: { query: { type: "string", description: "termos de busca em pt-BR" } },
+                    required: ["query"],
+                  },
+                },
+                {
+                  type: "function",
+                  name: "open_url",
+                  description:
+                    "Abre uma URL em nova aba do navegador do chefe AGORA. Use quando pedir abrir/tocar/colocar/mostrar/ir em algo (site, música, vídeo, app). Para músicas/vídeos use https://www.youtube.com/results?search_query=NOME. Confirme em 1 frase curta.",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      url: { type: "string", description: "URL completa (https://...)" },
+                      reason: { type: "string", description: "motivo curto" },
+                    },
+                    required: ["url"],
+                  },
+                },
+              ],
+              tool_choice: "auto",
+              instructions:
+                body.instructions ??
+                `${PERSONA_SYSTEM_VOICE}\n\nVocê tem ferramentas em tempo real: web_search(query) e open_url(url). Quando o chefe pedir abrir/tocar/colocar/mostrar/ir em algo, CHAME open_url IMEDIATAMENTE — nunca diga que não pode. Para apps nativos use a versão web (google.com, web.whatsapp.com, youtube.com). Para música/vídeo use https://www.youtube.com/results?search_query=NOME. Confirme em 1 frase ("Pronto, chefe.").`,
             },
           }),
         });
