@@ -192,6 +192,29 @@ export const Route = createFileRoute("/api/free-chat")({
                   const links = await ddgSearch(String(args.query));
                   searches.push({ query: String(args.query), count: links.length });
                   result = JSON.stringify(links);
+                } else if (call.function.name === "find_video") {
+                  const origin = new URL(request.url).origin;
+                  const r = await fetch(`${origin}/api/find-video`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: String(args.query) }),
+                  });
+                  const data = r.ok ? await r.json() : { videos: [] };
+                  searches.push({ query: `🎬 ${args.query}`, count: data.videos?.length ?? 0 });
+                  result = JSON.stringify(data);
+                } else if (call.function.name === "read_page") {
+                  const origin = new URL(request.url).origin;
+                  const r = await fetch(`${origin}/api/read-page`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: String(args.url) }),
+                  });
+                  const data = r.ok ? await r.json() : { error: await r.text() };
+                  // Trim text so the model doesn't choke on huge pages
+                  if (data.text) data.text = String(data.text).slice(0, 1500);
+                  if (Array.isArray(data.headings)) data.headings = data.headings.slice(0, 10);
+                  if (Array.isArray(data.fields)) data.fields = data.fields.slice(0, 15);
+                  result = JSON.stringify(data);
                 } else if (call.function.name === "open_url") {
                   const url = String(args.url);
                   opens.push({ url, reason: args.reason });
