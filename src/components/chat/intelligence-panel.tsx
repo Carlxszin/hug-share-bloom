@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { clearMetrics, useMetrics, type Intent } from "@/lib/metrics";
+import { computeVariantStats } from "@/lib/ab-prompts";
 
 const INTENT_LABEL: Record<Intent, string> = {
   chat: "Conversa",
