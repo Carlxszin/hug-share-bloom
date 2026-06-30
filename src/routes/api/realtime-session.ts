@@ -18,19 +18,21 @@ export const Route = createFileRoute("/api/realtime-session")({
           /* empty body ok */
         }
 
-        const upstream = await fetch("https://api.openai.com/v1/realtime/sessions", {
+        const upstream = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: "gpt-realtime",
-            voice: body.voice ?? "alloy",
-            modalities: ["audio", "text"],
-            instructions:
-              body.instructions ??
-              "Você é Aurora, uma assistente de IA brasileira, calorosa, objetiva e útil. Responda em português brasileiro de forma natural e conversacional.",
+            session: {
+              type: "realtime",
+              model: "gpt-realtime",
+              audio: { output: { voice: body.voice ?? "alloy" } },
+              instructions:
+                body.instructions ??
+                "Você é Aurora, uma assistente de IA brasileira, calorosa, objetiva e útil. Responda em português brasileiro de forma natural e conversacional.",
+            },
           }),
         });
 
