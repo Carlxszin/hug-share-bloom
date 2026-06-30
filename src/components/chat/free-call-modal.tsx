@@ -88,6 +88,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
   const startRecognition = useCallback(() => {
     const rec = recRef.current;
     if (!rec || !runningRef.current) return;
+    if (speakingRef.current) return; // never listen while AI is speaking
     try {
       rec.start();
     } catch {
@@ -98,14 +99,22 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
   const speak = useCallback((text: string) => {
     return new Promise<void>((resolve) => {
       if (!("speechSynthesis" in window)) return resolve();
+      // Hard-stop recognition so the mic can't pick up our own voice
+      try { recRef.current?.abort(); } catch { /* noop */ }
       window.speechSynthesis.cancel();
+      speakingRef.current = true;
+      lastAssistantRef.current = text.toLowerCase();
       const u = new SpeechSynthesisUtterance(text);
       u.lang = voiceRef.current?.lang ?? "pt-BR";
       u.rate = rateRef.current;
       u.volume = volumeRef.current;
       if (voiceRef.current) u.voice = voiceRef.current;
-      u.onend = () => resolve();
-      u.onerror = () => resolve();
+      const done = () => {
+        speakingRef.current = false;
+        resolve();
+      };
+      u.onend = done;
+      u.onerror = done;
       utterRef.current = u;
       window.speechSynthesis.speak(u);
     });
