@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { PERSONA_SYSTEM } from "@/lib/persona";
 
 type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
 type Body = { model: string; messages: ChatMessage[] };
@@ -24,7 +25,10 @@ export const Route = createFileRoute("/api/chat")({
           },
           body: JSON.stringify({
             model: body.model,
-            messages: body.messages,
+            messages: [
+              { role: "system", content: PERSONA_SYSTEM },
+              ...body.messages.filter((m) => m.role !== "system"),
+            ],
             stream: true,
             stream_options: { include_usage: true },
           }),

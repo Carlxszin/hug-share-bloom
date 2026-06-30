@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { PERSONA_SYSTEM_VOICE } from "@/lib/persona";
 
 type Body = { voice?: string; instructions?: string };
 
@@ -46,9 +47,7 @@ export const Route = createFileRoute("/api/realtime-session")({
               },
               // Resposta ultra-curta por turno (economia máxima).
               max_output_tokens: 150,
-              instructions:
-                body.instructions ??
-                "Você é Aurora, assistente brasileira. SEJA EXTREMAMENTE BREVE: responda em 1 frase curta (máx 15 palavras) em português. Nunca faça introduções nem repita a pergunta. Vá direto ao ponto. Só expanda se pedirem 'me explique mais'.",
+              instructions: body.instructions ?? PERSONA_SYSTEM_VOICE,
             },
           }),
         });
