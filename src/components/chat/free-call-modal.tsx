@@ -6,7 +6,6 @@ import { SideFeed } from "./call-modal";
 import {
   closeReservedExternalTabIfUnused,
   openInAppBrowser,
-  reserveExternalTab,
   sendBrowserCommand,
 } from "@/lib/browser-bus";
 import { detectImagePrompt, enqueueImage } from "@/lib/image-queue";
