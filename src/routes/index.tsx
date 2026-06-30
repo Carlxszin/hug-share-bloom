@@ -357,6 +357,13 @@ function ChatPage() {
             }
           })
           .catch(() => {});
+      // Save to semantic cache for future reuse (only first-turn short prompts).
+      if (assembled && isFirstUserMessage && text.length < 400) {
+        (async () => {
+          const emb = cacheEmbedding ?? (await (await import("@/lib/semantic-cache")).embedText(text));
+          if (emb) saveEntry(text, emb, assembled, routedModel);
+        })().catch(() => {});
+      }
       }
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
