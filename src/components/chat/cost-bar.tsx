@@ -38,41 +38,23 @@ export function CostBar({
     : { total: 0 };
 
   return (
-    <div className="px-6 md:px-8 py-3 border-b border-white/5 bg-white/[0.015]">
-      <div className="max-w-3xl mx-auto flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px]">
-        <Stat label="Última msg" usd={lastCost.total} brl={lastCost.total * rate} />
-        <Divider />
-        <Stat label="Conversa" usd={conv.total} brl={conv.total * rate} detail={`${tokens.in + tokens.out} tk`} />
-        <Divider />
-        <Stat label="Hoje" usd={periods.day} brl={periods.day * rate} />
-        <Divider />
-        <Stat label="Mês" usd={periods.month} brl={periods.month * rate} />
+    <div className="px-6 md:px-8 py-2 border-b border-white/5">
+      <div className="max-w-3xl mx-auto flex items-center justify-between gap-4 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-2 font-mono">
+          <span className="text-foreground font-medium">{fmtBRL(conv.total * rate)}</span>
+          <span className="text-muted-foreground/50">nesta conversa</span>
+          <span className="text-muted-foreground/40">· {tokens.in + tokens.out} tk</span>
+          {lastCost.total > 0 && (
+            <span className="text-muted-foreground/40">· última {fmtBRL(lastCost.total * rate)}</span>
+          )}
+        </div>
+        <div className="hidden sm:flex items-center gap-3 font-mono">
+          <span>Hoje <span className="text-foreground/80">{fmtBRL(periods.day * rate)}</span></span>
+          <span className="text-muted-foreground/30">|</span>
+          <span>Mês <span className="text-foreground/80">{fmtBRL(periods.month * rate)}</span></span>
+        </div>
       </div>
     </div>
   );
 }
 
-function Divider() {
-  return <span className="hidden sm:inline-block h-3 w-px bg-white/10" />;
-}
-
-function Stat({
-  label,
-  usd,
-  brl,
-  detail,
-}: {
-  label: string;
-  usd: number;
-  brl: number;
-  detail?: string;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">{label}</span>
-      <span className="font-mono font-medium text-foreground">{fmtBRL(brl)}</span>
-      <span className="font-mono text-muted-foreground/70">{fmtUSD(usd)}</span>
-      {detail && <span className="text-muted-foreground/60">· {detail}</span>}
-    </div>
-  );
-}

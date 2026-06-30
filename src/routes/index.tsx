@@ -251,52 +251,47 @@ function ChatPage() {
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 h-[520px] w-[520px] rounded-full bg-primary/[0.07] blur-[140px] ambient-glow" />
         </div>
 
-        <header className="relative h-16 flex items-center justify-between px-6 md:px-8 gap-2 border-b border-white/5 bg-background/40 backdrop-blur-xl z-10">
+        <header className="relative h-16 flex items-center justify-between px-6 md:px-8 gap-4 border-b border-white/5 bg-background/40 backdrop-blur-xl z-10">
           <div className="flex items-center gap-3 min-w-0">
-            <motion.div
-              initial={{ scale: 0.7, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 240, damping: 18 }}
-              className="md:hidden h-8 w-8 rounded-xl bg-primary text-primary-foreground flex items-center justify-center glow-primary"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </motion.div>
+            <h1 className="text-sm font-medium tracking-tight text-foreground truncate">
+              {active.title || "Nova conversa"}
+            </h1>
             <Badge
               variant="outline"
-              className="gap-1.5 rounded-full border-white/10 bg-white/[0.04] backdrop-blur-md text-[10px] px-2.5 py-1 font-medium text-muted-foreground"
+              className="gap-1.5 rounded-full border-white/10 bg-white/[0.04] text-[10px] px-2 py-0.5 font-medium text-muted-foreground"
             >
               <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-              API online
+              online
             </Badge>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setFreeCallOpen(true)}
-              className="gap-1.5 rounded-full border-success/40 bg-success/5 text-success hover:bg-success/10 hover:text-success"
-            >
-              <PhoneCall className="h-3.5 w-3.5" /> Grátis
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setCallOpen(true)}
-              className="gap-1.5 rounded-full border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"
-            >
-              <Phone className="h-3.5 w-3.5" /> Ligar
-            </Button>
             <ModelSelector
               value={active.model}
               onChange={(model) =>
                 updateConversation(active.id, (c) => ({ ...c, model }))
               }
             />
+            <div className="h-6 w-px bg-white/10 mx-1" />
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setFreeCallOpen(true)}
+              className="gap-1.5 rounded-full text-success hover:bg-success/10 hover:text-success h-8 px-3"
+            >
+              <PhoneCall className="h-3.5 w-3.5" /> Grátis
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setCallOpen(true)}
+              className="gap-1.5 rounded-full hover:bg-white/[0.06] h-8 px-3"
+            >
+              <Phone className="h-3.5 w-3.5" /> Ligar
+            </Button>
             <ThemeToggle />
           </div>
         </header>
+
 
         <CostBar conversation={active} rate={rate} />
 
