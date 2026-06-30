@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Phone, PhoneOff, Mic, MicOff, Loader2, Activity, Search, ExternalLink, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { realtimeCostUSD } from "@/lib/models";
-import { openInAppBrowser, sendBrowserCommand } from "@/lib/browser-bus";
+import { openInAppBrowser, reserveExternalTab, sendBrowserCommand } from "@/lib/browser-bus";
 
 type Usage = { textIn: number; textOut: number; audioIn: number; audioOut: number };
 type FeedItem =
@@ -191,6 +191,7 @@ export function CallModal({
   );
 
   const start = useCallback(async () => {
+    reserveExternalTab();
     setStatus("connecting");
     setError(null);
     setUsage({ textIn: 0, textOut: 0, audioIn: 0, audioOut: 0 });

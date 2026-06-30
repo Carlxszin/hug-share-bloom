@@ -16,7 +16,7 @@ import { NewChatPicker } from "@/components/chat/new-chat-picker";
 import { BuilderView } from "@/components/chat/builder-view";
 import { AgentView } from "@/components/chat/agent-view";
 import { EmbeddedBrowser } from "@/components/chat/embedded-browser";
-import { openInAppBrowser } from "@/lib/browser-bus";
+import { closeReservedExternalTabIfUnused, openInAppBrowser, reserveExternalTab } from "@/lib/browser-bus";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   loadConversations,
@@ -147,6 +147,7 @@ function ChatPage() {
     if (active.kind === "builder") return onSubmitBuilder();
     if (active.kind === "agent") return onSubmitAgent();
     const text = input.trim();
+    reserveExternalTab();
     setInput("");
 
     const userMsg: Message = {
@@ -262,6 +263,7 @@ function ChatPage() {
         }));
       }
     } finally {
+      closeReservedExternalTabIfUnused();
       setLoading(false);
       abortRef.current = null;
     }
