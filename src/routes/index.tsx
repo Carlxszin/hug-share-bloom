@@ -24,6 +24,7 @@ import { IntelligenceButton, IntelligencePanel } from "@/components/chat/intelli
 import { detectIntent, logTurn, patchTurn } from "@/lib/metrics";
 import { resolveModel } from "@/lib/router";
 import { findSimilar, saveEntry } from "@/lib/semantic-cache";
+import { pickVariant } from "@/lib/ab-prompts";
 import {
   loadConversations,
   logCost,
