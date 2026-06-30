@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { PERSONA_SYSTEM_VOICE } from "@/lib/persona";
 
 type Msg = { role: "system" | "user" | "assistant"; content: string };
 type Body = { messages: Msg[] };
@@ -14,12 +15,8 @@ export const Route = createFileRoute("/api/free-chat")({
 
         const body = (await request.json()) as Body;
         const messages: Msg[] = [
-          {
-            role: "system",
-            content:
-              "Você é Aurora, assistente brasileira em uma chamada por voz. Responda em português, em 1-2 frases curtas, direto ao ponto. Sem emojis, sem markdown.",
-          },
-          ...body.messages,
+          { role: "system", content: PERSONA_SYSTEM_VOICE },
+          ...body.messages.filter((m) => m.role !== "system"),
         ];
 
         const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
