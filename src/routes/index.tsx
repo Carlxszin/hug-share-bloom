@@ -313,6 +313,7 @@ function ChatPage() {
         />
       </main>
       <CallModal open={callOpen} onClose={() => setCallOpen(false)} rate={rate} voice="alloy" />
+      <FreeCallModal open={freeCallOpen} onClose={() => setFreeCallOpen(false)} />
     </div>
   );
 }
