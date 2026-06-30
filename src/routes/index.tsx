@@ -58,6 +58,7 @@ function ChatPage() {
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [activity, setActivity] = useState<BuilderActivity[]>([]);
   const [focusFile, setFocusFile] = useState<string | null>(null);
+  const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
