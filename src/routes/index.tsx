@@ -302,6 +302,7 @@ function ChatPage() {
           loading={loading}
         />
       </main>
+      <CallModal open={callOpen} onClose={() => setCallOpen(false)} rate={rate} voice="alloy" />
     </div>
   );
 }
