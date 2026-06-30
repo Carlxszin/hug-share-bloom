@@ -168,6 +168,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
         if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
         restartTimerRef.current = setTimeout(() => startRecognition(), 350);
       }
+    };
   }, [speak, startRecognition]);
 
   const buildRecognition = useCallback((): SpeechRecognition | null => {
