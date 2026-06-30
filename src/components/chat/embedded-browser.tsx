@@ -113,6 +113,18 @@ export function EmbeddedBrowser({
     setBlocked(false);
   };
 
+  // Auto-open in a real new tab when the embed gets blocked
+  useEffect(() => {
+    if (blocked && current && autoOpenedFor.current !== current) {
+      autoOpenedFor.current = current;
+      try {
+        externalTabRef.current = window.open(current, "_blank", "noopener,noreferrer");
+      } catch {
+        /* popup blocked */
+      }
+    }
+  }, [blocked, current]);
+
   const canBack = idx > 0;
   const canFwd = idx >= 0 && idx < stack.length - 1;
 
