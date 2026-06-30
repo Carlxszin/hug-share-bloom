@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
+import { Phone, Sparkles } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { CallModal } from "@/components/chat/call-modal";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { Composer } from "@/components/chat/composer";
 import { CostBar } from "@/components/chat/cost-bar";
