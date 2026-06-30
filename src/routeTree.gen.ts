@@ -16,6 +16,7 @@ import { Route as ApiRealtimeSessionRouteImport } from './routes/api/realtime-se
 import { Route as ApiGenerateImageRouteImport } from './routes/api/generate-image'
 import { Route as ApiFxRouteImport } from './routes/api/fx'
 import { Route as ApiFreeChatRouteImport } from './routes/api/free-chat'
+import { Route as ApiCritiqueRouteImport } from './routes/api/critique'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiBuilderRouteImport } from './routes/api/builder'
 import { Route as ApiAgentRouteImport } from './routes/api/agent'
@@ -55,6 +56,11 @@ const ApiFreeChatRoute = ApiFreeChatRouteImport.update({
   path: '/api/free-chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCritiqueRoute = ApiCritiqueRouteImport.update({
+  id: '/api/critique',
+  path: '/api/critique',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/api/agent': typeof ApiAgentRoute
   '/api/builder': typeof ApiBuilderRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/critique': typeof ApiCritiqueRoute
   '/api/free-chat': typeof ApiFreeChatRoute
   '/api/fx': typeof ApiFxRoute
   '/api/generate-image': typeof ApiGenerateImageRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/api/agent': typeof ApiAgentRoute
   '/api/builder': typeof ApiBuilderRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/critique': typeof ApiCritiqueRoute
   '/api/free-chat': typeof ApiFreeChatRoute
   '/api/fx': typeof ApiFxRoute
   '/api/generate-image': typeof ApiGenerateImageRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/api/agent': typeof ApiAgentRoute
   '/api/builder': typeof ApiBuilderRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/critique': typeof ApiCritiqueRoute
   '/api/free-chat': typeof ApiFreeChatRoute
   '/api/fx': typeof ApiFxRoute
   '/api/generate-image': typeof ApiGenerateImageRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/api/agent'
     | '/api/builder'
     | '/api/chat'
+    | '/api/critique'
     | '/api/free-chat'
     | '/api/fx'
     | '/api/generate-image'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/api/agent'
     | '/api/builder'
     | '/api/chat'
+    | '/api/critique'
     | '/api/free-chat'
     | '/api/fx'
     | '/api/generate-image'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/api/agent'
     | '/api/builder'
     | '/api/chat'
+    | '/api/critique'
     | '/api/free-chat'
     | '/api/fx'
     | '/api/generate-image'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   ApiAgentRoute: typeof ApiAgentRoute
   ApiBuilderRoute: typeof ApiBuilderRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiCritiqueRoute: typeof ApiCritiqueRoute
   ApiFreeChatRoute: typeof ApiFreeChatRoute
   ApiFxRoute: typeof ApiFxRoute
   ApiGenerateImageRoute: typeof ApiGenerateImageRoute
@@ -211,6 +224,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFreeChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/critique': {
+      id: '/api/critique'
+      path: '/api/critique'
+      fullPath: '/api/critique'
+      preLoaderRoute: typeof ApiCritiqueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
@@ -240,6 +260,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAgentRoute: ApiAgentRoute,
   ApiBuilderRoute: ApiBuilderRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiCritiqueRoute: ApiCritiqueRoute,
   ApiFreeChatRoute: ApiFreeChatRoute,
   ApiFxRoute: ApiFxRoute,
   ApiGenerateImageRoute: ApiGenerateImageRoute,
