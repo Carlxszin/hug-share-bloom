@@ -28,6 +28,20 @@ import { costUSD, DEFAULT_MODEL, getModel } from "@/lib/models";
 
 export const Route = createFileRoute("/")({ component: ChatPage });
 
+export type BuilderActivity = {
+  id: string;
+  tool: "write" | "edit" | "delete";
+  path: string;
+  ok?: boolean;
+  error?: string;
+  isNew?: boolean;
+  old?: string;
+  new?: string;
+  preview?: string;
+  size?: number;
+  ts: number;
+};
+
 function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string>("");
@@ -39,6 +53,8 @@ function ChatPage() {
   const [callPickerOpen, setCallPickerOpen] = useState(false);
   const [newChatPickerOpen, setNewChatPickerOpen] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [activity, setActivity] = useState<BuilderActivity[]>([]);
+  const [focusFile, setFocusFile] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
