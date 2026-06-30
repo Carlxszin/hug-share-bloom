@@ -15,6 +15,8 @@ import { ModelSelector } from "@/components/chat/model-selector";
 import { NewChatPicker } from "@/components/chat/new-chat-picker";
 import { BuilderView } from "@/components/chat/builder-view";
 import { AgentView } from "@/components/chat/agent-view";
+import { EmbeddedBrowser } from "@/components/chat/embedded-browser";
+import { openInAppBrowser } from "@/lib/browser-bus";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   loadConversations,
@@ -45,23 +47,8 @@ export type BuilderActivity = {
   ts: number;
 };
 
-const AGENT_BROWSER_ACTION_RE =
-  /\b(abra|abre|abrir|abrindo|mostra|mostre|mostrar|toca|toque|tocar|coloca|coloque|botar|bota|bote|reproduz|reproduza|navega|navegue)\b/i;
+// (no external popups — agent navigation happens in the in-app EmbeddedBrowser)
 
-function prepareAgentTab(text: string) {
-  if (typeof window === "undefined" || !AGENT_BROWSER_ACTION_RE.test(text)) return null;
-  const tab = window.open("about:blank", "_blank");
-  if (!tab) return null;
-  try {
-    tab.opener = null;
-    tab.document.title = "Octopus abrindo…";
-    tab.document.body.innerHTML =
-      '<div style="min-height:100vh;display:grid;place-items:center;background:#0b0b0c;color:#f97316;font:16px system-ui">Octopus está abrindo, chefe…</div>';
-  } catch {
-    /* cross-browser guard */
-  }
-  return tab;
-}
 
 function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -459,7 +446,7 @@ function ChatPage() {
     };
     const baseMessages = [...active.messages, userMsg];
     const isFirst = active.messages.length === 0;
-    let preparedTab = prepareAgentTab(text);
+    // Agent navigation happens in the in-app EmbeddedBrowser (no popups).
     updateConversation(active.id, (c) => ({
       ...c,
       title: isFirst ? text.slice(0, 48) : c.title,
@@ -527,16 +514,7 @@ function ChatPage() {
               ts: Date.now(),
             };
             if (step.openedUrl) {
-              try {
-                if (preparedTab && !preparedTab.closed) {
-                  preparedTab.location.href = step.openedUrl;
-                  preparedTab = null;
-                } else {
-                  window.open(step.openedUrl, "_blank", "noopener,noreferrer");
-                }
-              } catch {
-                /* popup blocked */
-              }
+              openInAppBrowser(step.openedUrl);
             }
             turnSteps.push(step);
             setAgentSteps((prev) => [...prev, step]);
@@ -579,11 +557,6 @@ function ChatPage() {
         }));
       }
     } finally {
-      try {
-        if (preparedTab && !preparedTab.closed) preparedTab.close();
-      } catch {
-        /* ignore */
-      }
       setLoading(false);
       abortRef.current = null;
     }
@@ -685,8 +658,8 @@ function ChatPage() {
             </div>
           </div>
         ) : isAgent ? (
-          <div className="relative flex-1 min-h-0 flex z-10">
-            <div className="flex flex-col flex-1 min-w-0 border-r border-white/5">
+          <div className="relative flex-1 min-h-0 flex flex-col lg:flex-row z-10">
+            <div className="flex flex-col flex-1 min-w-0 lg:border-r border-white/5 min-h-0">
               <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
                 {active.messages.length === 0 ? (
                   <AgentEmpty onPick={setInput} />
@@ -707,8 +680,11 @@ function ChatPage() {
                 onCall={() => setCallPickerOpen(true)}
               />
             </div>
-            <div className="w-[40%] min-w-[320px] max-w-[480px]">
-              <AgentView steps={agentSteps} streaming={loading} />
+            <div className="w-full lg:w-[44%] lg:min-w-[360px] lg:max-w-[560px] flex flex-col gap-2 p-2 border-t lg:border-t-0 border-white/5 min-h-0">
+              <div className="lg:max-h-[45%] overflow-hidden">
+                <AgentView steps={agentSteps} streaming={loading} />
+              </div>
+              <EmbeddedBrowser className="flex-1 min-h-[320px]" />
             </div>
           </div>
         ) : (

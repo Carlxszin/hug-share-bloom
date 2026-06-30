@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Phone, PhoneOff, Mic, MicOff, Loader2, Activity, Search, ExternalLink, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { realtimeCostUSD } from "@/lib/models";
+import { openInAppBrowser } from "@/lib/browser-bus";
 
 type Usage = { textIn: number; textOut: number; audioIn: number; audioOut: number };
 type FeedItem =
@@ -76,7 +77,7 @@ export function CallModal({
         const url = String(args.url ?? "");
         if (!url) return JSON.stringify({ error: "url ausente" });
         try {
-          window.open(url, "_blank", "noopener,noreferrer");
+          openInAppBrowser(url);
           pushFeed({ kind: "open", url });
           return JSON.stringify({ ok: true, opened: url });
         } catch (e) {
