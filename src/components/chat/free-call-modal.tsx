@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Phone, PhoneOff, Mic, MicOff, Loader2, Sparkles, CheckCircle2, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SideFeed } from "./call-modal";
+import { openInAppBrowser } from "@/lib/browser-bus";
 
 type FeedItem =
   | { kind: "user"; text: string }
