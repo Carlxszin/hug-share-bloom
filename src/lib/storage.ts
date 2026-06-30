@@ -38,7 +38,8 @@ export type AgentTool =
   | "screenshot"
   | "extract_structured"
   | "compare_pages"
-  | "calculate";
+  | "calculate"
+  | "open_url";
 
 export type AgentStep = {
   id: string;
@@ -48,6 +49,7 @@ export type AgentStep = {
   error?: string;
   result?: string;
   screenshotUrl?: string;
+  openedUrl?: string;
   links?: { title: string; url: string; snippet?: string }[];
   cached?: boolean;
   ts: number;
