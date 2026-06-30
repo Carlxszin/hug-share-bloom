@@ -148,7 +148,44 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
           body: JSON.stringify({ messages: history }),
         });
         if (!res.ok) throw new Error(await res.text());
-        const { reply } = (await res.json()) as { reply: string };
+        const { reply, opens, searches } = (await res.json()) as {
+          reply: string;
+          opens?: { url: string; reason?: string }[];
+          searches?: { query: string; count: number }[];
+        };
+
+        // Open requested URLs in new tabs (real-time browser action)
+        if (opens && opens.length) {
+          for (const o of opens) {
+            try {
+              window.open(o.url, "_blank", "noopener,noreferrer");
+            } catch {
+              /* popup blocker */
+            }
+          }
+        }
+
+        // Surface searches in transcript
+        if (searches && searches.length) {
+          for (const s of searches) {
+            setTranscript((p) => [
+              ...p,
+              { role: "assistant", text: `🔍 Pesquisei: "${s.query}" (${s.count} resultados)` },
+            ]);
+          }
+        }
+        if (opens && opens.length) {
+          setTranscript((p) => [
+            ...p,
+            {
+              role: "assistant",
+              text: `🌐 Abri ${opens.length} aba${opens.length > 1 ? "s" : ""}: ${opens
+                .map((o) => o.url)
+                .join(", ")}`,
+            },
+          ]);
+        }
+
         setTranscript((p) => [...p, { role: "assistant", text: reply }]);
 
         setActive("tts");
