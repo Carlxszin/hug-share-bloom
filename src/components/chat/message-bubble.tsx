@@ -107,14 +107,3 @@ function Dot({ delay = 0 }: { delay?: number }) {
     />
   );
 }
-
-
-function Dot({ delay = 0 }: { delay?: number }) {
-  return (
-    <motion.span
-      className="h-1.5 w-1.5 rounded-full bg-primary/70 inline-block"
-      animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
-      transition={{ duration: 1, repeat: Infinity, delay }}
-    />
-  );
-}
