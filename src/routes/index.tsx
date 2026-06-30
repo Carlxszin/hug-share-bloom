@@ -621,6 +621,7 @@ function ChatPage() {
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 h-[520px] w-[520px] rounded-full bg-primary/[0.07] blur-[140px] ambient-glow" />
         </div>
+        <ImageQueuePanel className="top-20" />
 
         <header className="relative h-16 flex items-center justify-between px-6 md:px-8 gap-4 border-b border-white/5 bg-background/40 backdrop-blur-xl z-10">
           <div className="flex items-center gap-2 min-w-0">
