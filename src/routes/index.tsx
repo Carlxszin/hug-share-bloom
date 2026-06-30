@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Phone, Sparkles } from "lucide-react";
+import { Phone, PhoneCall, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CallModal } from "@/components/chat/call-modal";
+import { FreeCallModal } from "@/components/chat/free-call-modal";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { Composer } from "@/components/chat/composer";
 import { CostBar } from "@/components/chat/cost-bar";
@@ -31,6 +32,7 @@ function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [rate, setRate] = useState(5.4);
   const [callOpen, setCallOpen] = useState(false);
+  const [freeCallOpen, setFreeCallOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -265,6 +267,14 @@ function ChatPage() {
             <Button
               size="sm"
               variant="outline"
+              onClick={() => setFreeCallOpen(true)}
+              className="gap-1.5 rounded-full border-success/50 text-success hover:bg-success/10 hover:text-success"
+            >
+              <PhoneCall className="h-3.5 w-3.5" /> Grátis
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => setCallOpen(true)}
               className="gap-1.5 rounded-full"
             >
@@ -303,6 +313,7 @@ function ChatPage() {
         />
       </main>
       <CallModal open={callOpen} onClose={() => setCallOpen(false)} rate={rate} voice="alloy" />
+      <FreeCallModal open={freeCallOpen} onClose={() => setFreeCallOpen(false)} />
     </div>
   );
 }
