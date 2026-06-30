@@ -286,6 +286,19 @@ function ChatPage() {
         updatedAt: Date.now(),
       }));
       logCost({ usd: cost.total, inputTokens: inTok, outputTokens: outTok });
+      logTurn({
+        intent: detectIntent(text),
+        model: active.model,
+        mode: "paid",
+        tokensIn: inTok,
+        tokensOut: outTok,
+        latencyMs: Math.round(performance.now() - t0),
+        costUSD: cost.total,
+        costBRL: cost.total * rate,
+        toolCalls: [],
+        retryCount: 0,
+        truncated: false,
+      });
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         updateConversation(active.id, (c) => ({
