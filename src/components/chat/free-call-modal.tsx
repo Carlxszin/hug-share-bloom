@@ -515,14 +515,6 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
   );
 }
 
-// keep transcript variable referenced to avoid unused warning if needed elsewhere
-void 0;
-
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
 
 function ProviderChip({
   label, name, free, active,
