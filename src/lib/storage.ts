@@ -28,9 +28,23 @@ export type Message = {
   fileChanges?: { path: string; action: "write" | "edit" | "delete" }[];
   /** Builder-mode: full edit log with diffs for this turn. */
   edits?: FileEdit[];
+  /** Agent-mode: list of executed steps. */
+  agentSteps?: AgentStep[];
 };
 
-export type ConversationKind = "chat" | "builder";
+export type AgentStep = {
+  id: string;
+  tool: "web_search" | "fetch_page" | "screenshot";
+  input: Record<string, unknown>;
+  ok?: boolean;
+  error?: string;
+  result?: string;
+  screenshotUrl?: string;
+  links?: { title: string; url: string; snippet?: string }[];
+  ts: number;
+};
+
+export type ConversationKind = "chat" | "builder" | "agent";
 
 export type Conversation = {
   id: string;
