@@ -328,6 +328,8 @@ export function CallModal({
             if (e.target === e.currentTarget && status !== "live") onClose();
           }}
         >
+          <ImageQueuePanel position="fixed" />
+
           <motion.div
             initial={{ scale: 0.92, opacity: 0, y: 12 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
