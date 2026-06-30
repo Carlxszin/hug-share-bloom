@@ -44,11 +44,11 @@ export const Route = createFileRoute("/api/realtime-session")({
                   },
                 },
               },
-              // Limita a resposta para evitar gastos altos por turno.
-              max_output_tokens: 400,
+              // Limita ainda mais a resposta por turno (economia extra ~30-40%).
+              max_output_tokens: 250,
               instructions:
                 body.instructions ??
-                "Você é Aurora, assistente brasileira. Seja calorosa, direta e CONCISA: respostas curtas (1-3 frases) em português, exceto se pedirem detalhes.",
+                "Você é Aurora, assistente brasileira. Seja calorosa, direta e MUITO CONCISA: responda em 1-2 frases curtas em português. Só dê detalhes se pedirem explicitamente.",
             },
           }),
         });
