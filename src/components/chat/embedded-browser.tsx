@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import {
   clearHistory,
   closeExternalTab,
+  closeReservedExternalTabIfUnused,
   loadHistory,
   openExternalTab,
   subscribeBrowserBus,
@@ -110,7 +111,24 @@ export function EmbeddedBrowser({
       blockTimer.current = null;
     }
     setBlocked(false);
+    closeReservedExternalTabIfUnused();
   };
+
+  const shouldOpenExternalAutomatically = useCallback((url: string) => {
+    try {
+      const host = new URL(url).hostname.replace(/^www\./, "");
+      return host === "youtu.be" || host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com");
+    } catch {
+      return false;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!current || autoOpenedFor.current === current) return;
+    if (!shouldOpenExternalAutomatically(current)) return;
+    autoOpenedFor.current = current;
+    openExternalTab(current);
+  }, [current, shouldOpenExternalAutomatically]);
 
   // Auto-open in a real new tab when the embed gets blocked
   useEffect(() => {

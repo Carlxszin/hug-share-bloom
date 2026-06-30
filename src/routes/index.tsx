@@ -431,6 +431,7 @@ function ChatPage() {
   const onSubmitAgent = async () => {
     if (!active || !input.trim() || loading) return;
     const text = input.trim();
+    reserveExternalTab();
     setInput("");
 
     const userMsg: Message = {
@@ -461,6 +462,7 @@ function ChatPage() {
     const turnSteps: AgentStep[] = [];
     const controller = new AbortController();
     abortRef.current = controller;
+    let openedSomething = false;
 
     try {
       const res = await fetch("/api/agent", {
@@ -516,6 +518,7 @@ function ChatPage() {
               ts: Date.now(),
             };
             if (step.openedUrl) {
+              openedSomething = true;
               openInAppBrowser(step.openedUrl);
             }
             turnSteps.push(step);
@@ -559,6 +562,7 @@ function ChatPage() {
         }));
       }
     } finally {
+      if (!openedSomething) closeReservedExternalTabIfUnused();
       setLoading(false);
       abortRef.current = null;
     }
