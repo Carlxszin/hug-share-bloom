@@ -95,6 +95,14 @@ async function ddgSearch(query: string) {
   return results;
 }
 
+class GatewayError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function callGateway(apiKey: string, messages: Msg[]) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -108,7 +116,7 @@ async function callGateway(apiKey: string, messages: Msg[]) {
   });
   if (!res.ok) {
     const t = await res.text();
-    throw new Error(t || `Gateway ${res.status}`);
+    throw new GatewayError(res.status, t || `Gateway ${res.status}`);
   }
   return res.json() as Promise<{
     choices: Array<{
