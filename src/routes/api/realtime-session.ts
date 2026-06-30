@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { PERSONA_SYSTEM_VOICE } from "@/lib/persona";
 
 type Body = { voice?: string; instructions?: string };
 
