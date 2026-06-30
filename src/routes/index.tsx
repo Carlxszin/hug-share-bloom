@@ -16,6 +16,8 @@ import { NewChatPicker } from "@/components/chat/new-chat-picker";
 import { BuilderView } from "@/components/chat/builder-view";
 import { AgentView } from "@/components/chat/agent-view";
 import { EmbeddedBrowser } from "@/components/chat/embedded-browser";
+import { ImageQueuePanel } from "@/components/chat/image-queue-panel";
+import { detectImagePrompt, enqueueImage } from "@/lib/image-queue";
 import { closeReservedExternalTabIfUnused, openInAppBrowser, reserveExternalTab } from "@/lib/browser-bus";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
