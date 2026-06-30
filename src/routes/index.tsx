@@ -479,7 +479,7 @@ function ChatPage() {
                 ) : (
                   <div className="max-w-2xl mx-auto px-2">
                     {active.messages.map((m) => (
-                      <MessageBubble key={m.id} message={m} onPreviewHtml={setPreviewHtml} />
+                      <MessageBubble key={m.id} message={m} rate={rate} onPreviewHtml={setPreviewHtml} />
                     ))}
                   </div>
                 )}
@@ -496,6 +496,8 @@ function ChatPage() {
             <div className="flex-1 min-w-0">
               <BuilderView
                 files={active.files ?? {}}
+                messages={active.messages}
+                conversationTitle={active.title}
                 onPreviewExternal={setPreviewHtml}
                 activity={activity}
                 focusFile={focusFile}
