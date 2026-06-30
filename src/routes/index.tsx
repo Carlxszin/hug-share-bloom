@@ -37,6 +37,7 @@ export type BuilderActivity = {
   isNew?: boolean;
   old?: string;
   new?: string;
+  line?: number;
   preview?: string;
   size?: number;
   ts: number;
