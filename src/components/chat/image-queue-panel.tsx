@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ImageIcon,
@@ -208,7 +208,7 @@ function JobCard({ job }: { job: ImageJob }) {
 }
 
 function StatusBadge({ status }: { status: ImageJob["status"] }) {
-  const map: Record<ImageJob["status"], { label: string; cls: string; icon: JSX.Element }> = {
+  const map: Record<ImageJob["status"], { label: string; cls: string; icon: React.ReactNode }> = {
     queued: {
       label: "Fila",
       cls: "bg-muted/70 text-muted-foreground",
