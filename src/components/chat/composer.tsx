@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUp, Square, Mic, Loader2 } from "lucide-react";
+import { ArrowUp, Square, Mic, Loader2, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -10,12 +10,14 @@ export function Composer({
   onSubmit,
   onStop,
   loading,
+  onCall,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
   onStop: () => void;
   loading: boolean;
+  onCall?: () => void;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
