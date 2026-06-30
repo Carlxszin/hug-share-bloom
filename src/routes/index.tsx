@@ -790,6 +790,7 @@ function ChatPage() {
         onPick={handlePick}
       />
       <HtmlPreview html={previewHtml} onClose={() => setPreviewHtml(null)} />
+      <IntelligencePanel open={iqOpen} onClose={() => setIqOpen(false)} />
     </div>
   );
 }
