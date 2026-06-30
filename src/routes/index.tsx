@@ -503,6 +503,7 @@ function ChatPage() {
               result: ev.result as string | undefined,
               screenshotUrl: ev.screenshotUrl as string | undefined,
               links: ev.links as AgentStep["links"],
+              cached: ev.cached as boolean | undefined,
               ts: Date.now(),
             };
             turnSteps.push(step);
