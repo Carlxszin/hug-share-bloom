@@ -316,6 +316,7 @@ function ChatPage() {
       const decoder = new TextDecoder();
       let buf = "";
       const fileChanges: { path: string; action: "write" | "edit" | "delete" }[] = [];
+      const turnEdits: import("@/lib/storage").FileEdit[] = [];
       let finalMsg = "";
       let usage = { inputTokens: 0, outputTokens: 0, usd: 0 };
       let latestFiles: Record<string, string> = active.files ?? {};
@@ -344,12 +345,26 @@ function ChatPage() {
               isNew: ev.isNew as boolean | undefined,
               old: ev.old as string | undefined,
               new: ev.new as string | undefined,
+              line: ev.line as number | undefined,
               preview: ev.preview as string | undefined,
               size: ev.size as number | undefined,
               ts: Date.now(),
             };
             setActivity((prev) => [...prev, a]);
             setFocusFile(a.path);
+            turnEdits.push({
+              tool: a.tool,
+              path: a.path,
+              ok: a.ok,
+              error: a.error,
+              isNew: a.isNew,
+              old: a.old,
+              new: a.new,
+              line: a.line,
+              preview: a.preview,
+              size: a.size,
+              ts: a.ts,
+            });
             if (a.ok !== false) fileChanges.push({ path: a.path, action: a.tool });
           } else if (ev.type === "files") {
             latestFiles = ev.files as Record<string, string>;
@@ -374,7 +389,9 @@ function ChatPage() {
                 content: finalMsg || "Atualizei o workspace.",
                 inputTokens: usage.inputTokens,
                 outputTokens: usage.outputTokens,
+                costUSD: usage.usd,
                 fileChanges,
+                edits: turnEdits,
               }
             : m,
         ),
