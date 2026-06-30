@@ -502,10 +502,18 @@ function ChatPage() {
               error: ev.error as string | undefined,
               result: ev.result as string | undefined,
               screenshotUrl: ev.screenshotUrl as string | undefined,
+              openedUrl: ev.openedUrl as string | undefined,
               links: ev.links as AgentStep["links"],
               cached: ev.cached as boolean | undefined,
               ts: Date.now(),
             };
+            if (step.openedUrl) {
+              try {
+                window.open(step.openedUrl, "_blank", "noopener,noreferrer");
+              } catch {
+                /* popup blocked */
+              }
+            }
             turnSteps.push(step);
             setAgentSteps((prev) => [...prev, step]);
           } else if (ev.type === "done") {
