@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiRealtimeSessionRouteImport } from './routes/api/realtime-session'
 import { Route as ApiFxRouteImport } from './routes/api/fx'
+import { Route as ApiFreeChatRouteImport } from './routes/api/free-chat'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 
 const IndexRoute = IndexRouteImport.update({
@@ -35,6 +36,11 @@ const ApiFxRoute = ApiFxRouteImport.update({
   path: '/api/fx',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFreeChatRoute = ApiFreeChatRouteImport.update({
+  id: '/api/free-chat',
+  path: '/api/free-chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
@@ -44,6 +50,7 @@ const ApiChatRoute = ApiChatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/free-chat': typeof ApiFreeChatRoute
   '/api/fx': typeof ApiFxRoute
   '/api/realtime-session': typeof ApiRealtimeSessionRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/free-chat': typeof ApiFreeChatRoute
   '/api/fx': typeof ApiFxRoute
   '/api/realtime-session': typeof ApiRealtimeSessionRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -59,6 +67,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/free-chat': typeof ApiFreeChatRoute
   '/api/fx': typeof ApiFxRoute
   '/api/realtime-session': typeof ApiRealtimeSessionRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -68,6 +77,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/api/chat'
+    | '/api/free-chat'
     | '/api/fx'
     | '/api/realtime-session'
     | '/api/transcribe'
@@ -75,6 +85,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/api/chat'
+    | '/api/free-chat'
     | '/api/fx'
     | '/api/realtime-session'
     | '/api/transcribe'
@@ -82,6 +93,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/api/chat'
+    | '/api/free-chat'
     | '/api/fx'
     | '/api/realtime-session'
     | '/api/transcribe'
@@ -90,6 +102,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiFreeChatRoute: typeof ApiFreeChatRoute
   ApiFxRoute: typeof ApiFxRoute
   ApiRealtimeSessionRoute: typeof ApiRealtimeSessionRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
@@ -125,6 +138,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFxRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/free-chat': {
+      id: '/api/free-chat'
+      path: '/api/free-chat'
+      fullPath: '/api/free-chat'
+      preLoaderRoute: typeof ApiFreeChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
@@ -138,6 +158,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiFreeChatRoute: ApiFreeChatRoute,
   ApiFxRoute: ApiFxRoute,
   ApiRealtimeSessionRoute: ApiRealtimeSessionRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
