@@ -167,8 +167,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
         setPhase("speaking");
         await speak(ack);
         return;
-
-
+      }
 
       setActive("llm");
       setPhase("thinking");
