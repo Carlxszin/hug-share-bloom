@@ -2,6 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Phone, PhoneOff, Mic, MicOff, Loader2, Sparkles, CheckCircle2, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SideFeed } from "./call-modal";
+
+type FeedItem =
+  | { kind: "user"; text: string }
+  | { kind: "assistant"; text: string }
+  | { kind: "search"; query: string; count?: number }
+  | { kind: "open"; url: string }
+  | { kind: "tool-error"; text: string };
+
 
 type Turn = { role: "user" | "assistant"; text: string };
 type Phase = "idle" | "listening" | "thinking" | "speaking" | "error";
