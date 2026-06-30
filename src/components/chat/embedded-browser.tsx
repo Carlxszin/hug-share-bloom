@@ -14,6 +14,7 @@ import {
   clearHistory,
   loadHistory,
   subscribeBrowserBus,
+  subscribeBrowserCommands,
 } from "@/lib/browser-bus";
 
 /**
@@ -102,7 +103,7 @@ export function EmbeddedBrowser({
       if (id) {
         const origin =
           typeof window !== "undefined" ? encodeURIComponent(window.location.origin) : "";
-        return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0&modestbranding=1${origin ? `&origin=${origin}` : ""}`;
+        return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1${origin ? `&origin=${origin}` : ""}`;
       }
     } catch {
       /* not a URL */
