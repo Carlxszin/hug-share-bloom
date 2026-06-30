@@ -557,11 +557,6 @@ function ChatPage() {
         }));
       }
     } finally {
-      try {
-        if (preparedTab && !preparedTab.closed) preparedTab.close();
-      } catch {
-        /* ignore */
-      }
       setLoading(false);
       abortRef.current = null;
     }
