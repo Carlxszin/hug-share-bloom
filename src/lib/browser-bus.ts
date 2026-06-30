@@ -1,26 +1,23 @@
 // Lightweight pub/sub used to navigate the in-app embedded browser
 // (replaces window.open popups across agent + call modals).
-//
-// Also persists the last-visited URLs to localStorage so the panel
-// can restore its history between sessions.
 
 const KEY = "octopus.browser.history.v1";
 const MAX = 30;
 
-type Listener = (url: string) => void;
-const listeners = new Set<Listener>();
+type NavListener = (url: string) => void;
+type CmdListener = (cmd: "close" | "pause" | "play") => void;
+const navListeners = new Set<NavListener>();
+const cmdListeners = new Set<CmdListener>();
 
 export function openInAppBrowser(url: string) {
   if (!url) return;
-  // Notify listeners (EmbeddedBrowser will pick it up)
-  for (const l of listeners) {
+  for (const l of navListeners) {
     try {
       l(url);
     } catch {
       /* ignore */
     }
   }
-  // Persist
   if (typeof window !== "undefined") {
     try {
       const prev = loadHistory();
@@ -32,9 +29,24 @@ export function openInAppBrowser(url: string) {
   }
 }
 
-export function subscribeBrowserBus(fn: Listener) {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
+export function sendBrowserCommand(cmd: "close" | "pause" | "play") {
+  for (const l of cmdListeners) {
+    try {
+      l(cmd);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function subscribeBrowserBus(fn: NavListener) {
+  navListeners.add(fn);
+  return () => navListeners.delete(fn);
+}
+
+export function subscribeBrowserCommands(fn: CmdListener) {
+  cmdListeners.add(fn);
+  return () => cmdListeners.delete(fn);
 }
 
 export function loadHistory(): string[] {

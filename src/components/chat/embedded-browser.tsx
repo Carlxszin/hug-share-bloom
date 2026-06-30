@@ -14,6 +14,7 @@ import {
   clearHistory,
   loadHistory,
   subscribeBrowserBus,
+  subscribeBrowserCommands,
 } from "@/lib/browser-bus";
 
 /**
@@ -36,6 +37,8 @@ export function EmbeddedBrowser({
   const [showHistory, setShowHistory] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const blockTimer = useRef<number | null>(null);
+  const externalTabRef = useRef<Window | null>(null);
+  const autoOpenedFor = useRef<string | null>(null);
 
   const current = idx >= 0 ? stack[idx] : null;
 
@@ -53,8 +56,35 @@ export function EmbeddedBrowser({
     const off = subscribeBrowserBus((url) => {
       go(url);
     });
+    const offCmd = subscribeBrowserCommands((cmd) => {
+      const iframe = iframeRef.current;
+      if (cmd === "close") {
+        try { externalTabRef.current?.close(); } catch { /* ignore */ }
+        externalTabRef.current = null;
+        if (iframe?.contentWindow) {
+          iframe.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func: "pauseVideo", args: [] }),
+            "*",
+          );
+        }
+        setStack([]);
+        setIdx(-1);
+        setBlocked(false);
+        setBlocked(false);
+      } else if (cmd === "pause" || cmd === "play") {
+        // YouTube IFrame API postMessage
+        if (iframe?.contentWindow) {
+          const func = cmd === "pause" ? "pauseVideo" : "playVideo";
+          iframe.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func, args: [] }),
+            "*",
+          );
+        }
+      }
+    });
     return () => {
       off();
+      offCmd();
     };
   }, [go]);
 
@@ -83,6 +113,18 @@ export function EmbeddedBrowser({
     setBlocked(false);
   };
 
+  // Auto-open in a real new tab when the embed gets blocked
+  useEffect(() => {
+    if (blocked && current && autoOpenedFor.current !== current) {
+      autoOpenedFor.current = current;
+      try {
+        externalTabRef.current = window.open(current, "_blank", "noopener,noreferrer");
+      } catch {
+        /* popup blocked */
+      }
+    }
+  }, [blocked, current]);
+
   const canBack = idx > 0;
   const canFwd = idx >= 0 && idx < stack.length - 1;
 
@@ -102,7 +144,7 @@ export function EmbeddedBrowser({
       if (id) {
         const origin =
           typeof window !== "undefined" ? encodeURIComponent(window.location.origin) : "";
-        return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0&modestbranding=1${origin ? `&origin=${origin}` : ""}`;
+        return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1${origin ? `&origin=${origin}` : ""}`;
       }
     } catch {
       /* not a URL */
@@ -223,15 +265,32 @@ export function EmbeddedBrowser({
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/95 text-center p-6">
                 <Globe className="h-8 w-8 text-muted-foreground" />
                 <p className="text-sm text-foreground max-w-xs">
-                  Este site bloqueia visualização embutida, chefe.
+                  Este site bloqueia visualização embutida, chefe. Abri em uma nova aba.
                 </p>
-                <Button
-                  size="sm"
-                  onClick={() => window.open(current, "_blank", "noopener,noreferrer")}
-                  className="gap-2"
-                >
-                  <ExternalLink className="h-4 w-4" /> Abrir em nova aba
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (!current) return;
+                      externalTabRef.current = window.open(current, "_blank", "noopener,noreferrer");
+                    }}
+                    className="gap-2"
+                  >
+                    <ExternalLink className="h-4 w-4" /> Reabrir
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      try { externalTabRef.current?.close(); } catch { /* ignore */ }
+                      externalTabRef.current = null;
+                      setStack([]); setIdx(-1); setBlocked(false);
+                    }}
+                    className="gap-2"
+                  >
+                    <X className="h-4 w-4" /> Fechar aba
+                  </Button>
+                </div>
               </div>
             )}
           </>
