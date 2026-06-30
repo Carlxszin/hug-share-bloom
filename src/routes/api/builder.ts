@@ -132,6 +132,8 @@ export const Route = createFileRoute("/api/builder")({
         if (!body?.model || !Array.isArray(body.messages)) {
           return new Response("Bad request", { status: 400 });
         }
+        const KNOWN = new Set(["gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-4o", "gpt-4o-mini"]);
+        if (!KNOWN.has(body.model)) body.model = "gpt-5-mini";
 
         const files: Record<string, string> = { ...(body.files ?? {}) };
         const sysWithSnapshot = `${SYSTEM}\n\n--- CURRENT WORKSPACE ---\n${snapshot(files)}`;
