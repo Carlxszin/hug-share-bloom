@@ -358,8 +358,9 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0 }}
             transition={{ type: "spring", stiffness: 240, damping: 24 }}
-            className="w-full max-w-lg rounded-3xl border bg-card text-card-foreground shadow-2xl overflow-hidden"
+            className="w-full max-w-4xl rounded-3xl border bg-card text-card-foreground shadow-2xl overflow-hidden grid md:grid-cols-[1fr_360px]"
           >
+            <div className="flex flex-col">
             <div className="relative px-6 pt-8 pb-6 bg-gradient-to-br from-success/15 via-transparent to-primary/10">
               <div className="flex flex-col items-center text-center">
                 <motion.div
