@@ -54,6 +54,9 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const rateRef = useRef(rate);
   const volumeRef = useRef(volume);
+  const speakingRef = useRef(false);
+  const lastAssistantRef = useRef<string>("");
+  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { mutedRef.current = muted; }, [muted]);
@@ -85,6 +88,7 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
   const startRecognition = useCallback(() => {
     const rec = recRef.current;
     if (!rec || !runningRef.current) return;
+    if (speakingRef.current) return; // never listen while AI is speaking
     try {
       rec.start();
     } catch {
@@ -95,14 +99,22 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
   const speak = useCallback((text: string) => {
     return new Promise<void>((resolve) => {
       if (!("speechSynthesis" in window)) return resolve();
+      // Hard-stop recognition so the mic can't pick up our own voice
+      try { recRef.current?.abort(); } catch { /* noop */ }
       window.speechSynthesis.cancel();
+      speakingRef.current = true;
+      lastAssistantRef.current = text.toLowerCase();
       const u = new SpeechSynthesisUtterance(text);
       u.lang = voiceRef.current?.lang ?? "pt-BR";
       u.rate = rateRef.current;
       u.volume = volumeRef.current;
       if (voiceRef.current) u.voice = voiceRef.current;
-      u.onend = () => resolve();
-      u.onerror = () => resolve();
+      const done = () => {
+        speakingRef.current = false;
+        resolve();
+      };
+      u.onend = done;
+      u.onerror = done;
       utterRef.current = u;
       window.speechSynthesis.speak(u);
     });
@@ -149,11 +161,12 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
         return;
       }
 
-      // CRITICAL: explicitly resume listening after TTS finishes
+      // Resume listening after TTS — small delay so room echo doesn't retrigger SR
       if (runningRef.current) {
         setActive("stt");
         setPhase("listening");
-        startRecognition();
+        if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+        restartTimerRef.current = setTimeout(() => startRecognition(), 350);
       }
     };
   }, [speak, startRecognition]);
@@ -175,6 +188,8 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
     rec.interimResults = true;
 
     rec.onresult = (e) => {
+      // Ignore anything captured while AI is speaking or in non-listening phases
+      if (speakingRef.current || phaseRef.current !== "listening") return;
       let interim = "";
       let finalText = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -184,6 +199,12 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
       }
       if (interim) setPartial(interim);
       if (finalText && !mutedRef.current) {
+        const norm = finalText.trim().toLowerCase();
+        // Drop echo of our own utterance (TTS bleeding into the mic)
+        const last = lastAssistantRef.current;
+        if (last && (last.includes(norm) || norm.includes(last.slice(0, Math.min(40, last.length))))) {
+          return;
+        }
         try { rec.stop(); } catch { /* noop */ }
         handleFinalRef.current(finalText);
       }
@@ -211,20 +232,36 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
     return rec;
   }, []);
 
-  const start = useCallback(() => {
+  const start = useCallback(async () => {
     setError(null);
     const rec = buildRecognition();
     if (!rec) return;
     recRef.current = rec;
     runningRef.current = true;
+
+    // 1) Octopus fala primeiro, tratando o usuário como chefe
+    const greeting = "Olá, chefe! Octopus na escuta. Como posso te ajudar?";
+    setTranscript((p) => [...p, { role: "assistant", text: greeting }]);
+    setActive("tts");
+    setPhase("speaking");
+    await speak(greeting);
+
+    // 2) Depois libera o microfone
+    if (!runningRef.current) return;
     setActive("stt");
     setPhase("listening");
-    try { rec.start(); } catch { /* already started */ }
-  }, [buildRecognition]);
+    if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+    restartTimerRef.current = setTimeout(() => startRecognition(), 350);
+  }, [buildRecognition, speak, startRecognition]);
 
   const stop = useCallback(() => {
     runningRef.current = false;
+    speakingRef.current = false;
     phaseRef.current = "idle";
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
     try { recRef.current?.abort(); } catch { /* noop */ }
     recRef.current = null;
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
