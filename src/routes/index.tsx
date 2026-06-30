@@ -879,3 +879,47 @@ function EmptyState({ onPick }: { onPick: (v: string) => void }) {
     </div>
   );
 }
+
+function AgentEmpty({ onPick }: { onPick: (v: string) => void }) {
+  const ideas = [
+    "Pesquise os 3 notebooks mais vendidos abaixo de R$ 4000 e me dê uma tabela comparativa",
+    "Resuma as 5 principais notícias de tecnologia de hoje no Brasil",
+    "Abra o site exemplo.com e tire um screenshot da home",
+    "Compare os preços do iPhone 15 em 3 lojas brasileiras",
+  ];
+  return (
+    <div className="h-full flex flex-col items-center justify-center px-6 py-12 text-center">
+      <div className="max-w-md w-full space-y-6">
+        <div className="space-y-2">
+          <motion.h2
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-3xl tracking-tight"
+            style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontWeight: 600 }}
+          >
+            Qual tarefa devo executar?
+          </motion.h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            O Agente pesquisa na web, lê páginas e captura screenshots de forma autônoma.
+          </p>
+        </div>
+        <div className="grid gap-2 text-left">
+          {ideas.map((t, i) => (
+            <motion.button
+              key={t}
+              type="button"
+              onClick={() => onPick(t)}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 + i * 0.05 }}
+              whileHover={{ x: 2 }}
+              className="p-3 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-success/30 transition text-xs text-foreground/90"
+            >
+              {t}
+            </motion.button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
