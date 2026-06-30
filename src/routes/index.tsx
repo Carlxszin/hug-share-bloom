@@ -14,12 +14,14 @@ import { HtmlPreview } from "@/components/chat/html-preview";
 import { ModelSelector } from "@/components/chat/model-selector";
 import { NewChatPicker } from "@/components/chat/new-chat-picker";
 import { BuilderView } from "@/components/chat/builder-view";
+import { AgentView } from "@/components/chat/agent-view";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   loadConversations,
   logCost,
   newConversation,
   saveConversations,
+  type AgentStep,
   type Conversation,
   type ConversationKind,
   type Message,
