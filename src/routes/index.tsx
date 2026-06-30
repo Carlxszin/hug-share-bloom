@@ -598,6 +598,7 @@ function ChatPage() {
     const controller = new AbortController();
     abortRef.current = controller;
     let openedSomething = false;
+    const tAgent0 = performance.now();
 
     try {
       const res = await fetch("/api/agent", {
