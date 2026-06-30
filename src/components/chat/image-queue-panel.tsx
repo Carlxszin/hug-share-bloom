@@ -208,7 +208,7 @@ function JobCard({ job }: { job: ImageJob }) {
 }
 
 function StatusBadge({ status }: { status: ImageJob["status"] }) {
-  const map: Record<ImageJob["status"], { label: string; cls: string; icon: React.ReactNode }> = {
+  const map: Record<ImageJob["status"], { label: string; cls: string; icon: ReactNode }> = {
     queued: {
       label: "Fila",
       cls: "bg-muted/70 text-muted-foreground",
