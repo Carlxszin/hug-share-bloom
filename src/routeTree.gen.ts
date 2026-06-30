@@ -16,6 +16,7 @@ import { Route as ApiFxRouteImport } from './routes/api/fx'
 import { Route as ApiFreeChatRouteImport } from './routes/api/free-chat'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiBuilderRouteImport } from './routes/api/builder'
+import { Route as ApiAgentRouteImport } from './routes/api/agent'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,9 +53,15 @@ const ApiBuilderRoute = ApiBuilderRouteImport.update({
   path: '/api/builder',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAgentRoute = ApiAgentRouteImport.update({
+  id: '/api/agent',
+  path: '/api/agent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/agent': typeof ApiAgentRoute
   '/api/builder': typeof ApiBuilderRoute
   '/api/chat': typeof ApiChatRoute
   '/api/free-chat': typeof ApiFreeChatRoute
@@ -64,6 +71,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/agent': typeof ApiAgentRoute
   '/api/builder': typeof ApiBuilderRoute
   '/api/chat': typeof ApiChatRoute
   '/api/free-chat': typeof ApiFreeChatRoute
@@ -74,6 +82,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/agent': typeof ApiAgentRoute
   '/api/builder': typeof ApiBuilderRoute
   '/api/chat': typeof ApiChatRoute
   '/api/free-chat': typeof ApiFreeChatRoute
@@ -85,6 +94,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/api/agent'
     | '/api/builder'
     | '/api/chat'
     | '/api/free-chat'
@@ -94,6 +104,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/api/agent'
     | '/api/builder'
     | '/api/chat'
     | '/api/free-chat'
@@ -103,6 +114,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/api/agent'
     | '/api/builder'
     | '/api/chat'
     | '/api/free-chat'
@@ -113,6 +125,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiAgentRoute: typeof ApiAgentRoute
   ApiBuilderRoute: typeof ApiBuilderRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiFreeChatRoute: typeof ApiFreeChatRoute
@@ -172,11 +185,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBuilderRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/agent': {
+      id: '/api/agent'
+      path: '/api/agent'
+      fullPath: '/api/agent'
+      preLoaderRoute: typeof ApiAgentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiAgentRoute: ApiAgentRoute,
   ApiBuilderRoute: ApiBuilderRoute,
   ApiChatRoute: ApiChatRoute,
   ApiFreeChatRoute: ApiFreeChatRoute,
