@@ -422,6 +422,7 @@ function ChatPage() {
     setFocusFile(null);
     const controller = new AbortController();
     abortRef.current = controller;
+    const tBuilder0 = performance.now();
     try {
       const res = await fetch("/api/builder", {
         method: "POST",
@@ -534,6 +535,19 @@ function ChatPage() {
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
       });
+      logTurn({
+        intent: "builder",
+        model: active.model,
+        mode: "paid",
+        tokensIn: usage.inputTokens,
+        tokensOut: usage.outputTokens,
+        latencyMs: Math.round(performance.now() - tBuilder0),
+        costUSD: usage.usd,
+        costBRL: usage.usd * rate,
+        toolCalls: (fileChanges ?? []).map(() => ({ name: "write_file", ok: true })),
+        retryCount: 0,
+        truncated: false,
+      });
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         updateConversation(active.id, (c) => ({
@@ -584,6 +598,7 @@ function ChatPage() {
     const controller = new AbortController();
     abortRef.current = controller;
     let openedSomething = false;
+    const tAgent0 = performance.now();
 
     try {
       const res = await fetch("/api/agent", {
@@ -672,6 +687,19 @@ function ChatPage() {
         usd: usage.usd,
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
+      });
+      logTurn({
+        intent: "agent",
+        model: active.model,
+        mode: "paid",
+        tokensIn: usage.inputTokens,
+        tokensOut: usage.outputTokens,
+        latencyMs: Math.round(performance.now() - tAgent0),
+        costUSD: usage.usd,
+        costBRL: usage.usd * rate,
+        toolCalls: turnSteps.map((s) => ({ name: s.tool, ok: s.ok !== false })),
+        retryCount: 0,
+        truncated: false,
       });
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
