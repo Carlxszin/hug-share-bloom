@@ -301,7 +301,6 @@ export function FreeCallModal({ open, onClose }: { open: boolean; onClose: () =>
   }, []);
 
   const start = useCallback(async () => {
-    reserveExternalTab();
     setError(null);
     setFeed([]);
     const rec = buildRecognition();
