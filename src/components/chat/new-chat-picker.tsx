@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, Code2, Sparkles, Zap, Brain } from "lucide-react";
+import { MessageSquare, Code2, Sparkles, Zap, Brain, Bot } from "lucide-react";
 import { MODELS } from "@/lib/models";
 
 const BUILDER_MODELS = ["gpt-5", "gpt-4o"];
@@ -11,7 +11,7 @@ export function NewChatPicker({
 }: {
   open: boolean;
   onClose: () => void;
-  onPick: (kind: "chat" | "builder", model: string) => void;
+  onPick: (kind: "chat" | "builder" | "agent", model: string) => void;
 }) {
   return (
     <AnimatePresence>
