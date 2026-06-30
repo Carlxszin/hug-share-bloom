@@ -10,6 +10,7 @@ import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { Composer } from "@/components/chat/composer";
 import { CostBar } from "@/components/chat/cost-bar";
 import { MessageBubble } from "@/components/chat/message-bubble";
+import { HtmlPreview } from "@/components/chat/html-preview";
 import { ModelSelector } from "@/components/chat/model-selector";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
