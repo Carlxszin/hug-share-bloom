@@ -60,7 +60,7 @@ export const Route = createFileRoute("/api/realtime-session")({
                   type: "function",
                   name: "open_url",
                   description:
-                    "Abre uma URL em nova aba do navegador do chefe AGORA. Use quando pedir abrir/tocar/colocar/mostrar/ir em algo (site, música, vídeo, app). Para músicas/vídeos use https://www.youtube.com/results?search_query=NOME. Confirme em 1 frase curta.",
+                    "Abre uma URL no navegador embutido do chefe AGORA. Use quando pedir abrir/tocar/colocar/mostrar/ir em algo. Para músicas/vídeos prefira chamar find_video PRIMEIRO e usar a URL retornada. Confirme em 1 frase curta.",
                   parameters: {
                     type: "object",
                     properties: {
@@ -70,11 +70,33 @@ export const Route = createFileRoute("/api/realtime-session")({
                     required: ["url"],
                   },
                 },
+                {
+                  type: "function",
+                  name: "read_page",
+                  description:
+                    "Lê o conteúdo de uma página web e devolve título, headings, texto resumido e CAMPOS de formulário (input/textarea/select com name, id, type, placeholder, aria-label). Use sempre que precisar entender o que tem numa página, achar onde clicar/preencher, ou responder com base em conteúdo real.",
+                  parameters: {
+                    type: "object",
+                    properties: { url: { type: "string" } },
+                    required: ["url"],
+                  },
+                },
+                {
+                  type: "function",
+                  name: "find_video",
+                  description:
+                    "Busca vídeos no YouTube e devolve os top resultados com id, título, canal e URL pronta para tocar. Use quando o chefe pedir vídeo, música ou clipe. Depois chame open_url com a URL do vídeo escolhido.",
+                  parameters: {
+                    type: "object",
+                    properties: { query: { type: "string" } },
+                    required: ["query"],
+                  },
+                },
               ],
               tool_choice: "auto",
               instructions:
                 body.instructions ??
-                `${PERSONA_SYSTEM_VOICE}\n\nVocê tem ferramentas em tempo real: web_search(query) e open_url(url). Quando o chefe pedir abrir/tocar/colocar/mostrar/ir em algo, CHAME open_url IMEDIATAMENTE — nunca diga que não pode. Para apps nativos use a versão web (google.com, web.whatsapp.com, youtube.com). Para música/vídeo use https://www.youtube.com/results?search_query=NOME. Confirme em 1 frase ("Pronto, chefe.").`,
+                `${PERSONA_SYSTEM_VOICE}\n\nFerramentas em tempo real:\n- web_search(query): busca rápida na web.\n- find_video(query): acha vídeos no YouTube — use SEMPRE para pedidos de música/vídeo/clipe.\n- read_page(url): lê o conteúdo + campos de uma página (use para entender onde está cada coisa).\n- open_url(url): abre uma página no navegador embutido do chefe.\n\nFluxo padrão:\n1) Para vídeo/música → find_video(termo) → escolha o 1º → open_url(url do vídeo).\n2) Para site específico → open_url direto e, se precisar agir, depois read_page para entender campos.\n3) Confirme em 1 frase curta ("Pronto, chefe."). Nunca diga que não pode — você PODE.`,
             },
           }),
         });

@@ -13,9 +13,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiWebSearchRouteImport } from './routes/api/web-search'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiRealtimeSessionRouteImport } from './routes/api/realtime-session'
+import { Route as ApiReadPageRouteImport } from './routes/api/read-page'
 import { Route as ApiGenerateImageRouteImport } from './routes/api/generate-image'
 import { Route as ApiFxRouteImport } from './routes/api/fx'
 import { Route as ApiFreeChatRouteImport } from './routes/api/free-chat'
+import { Route as ApiFindVideoRouteImport } from './routes/api/find-video'
 import { Route as ApiEmbedRouteImport } from './routes/api/embed'
 import { Route as ApiCritiqueRouteImport } from './routes/api/critique'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
@@ -42,6 +44,11 @@ const ApiRealtimeSessionRoute = ApiRealtimeSessionRouteImport.update({
   path: '/api/realtime-session',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReadPageRoute = ApiReadPageRouteImport.update({
+  id: '/api/read-page',
+  path: '/api/read-page',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiGenerateImageRoute = ApiGenerateImageRouteImport.update({
   id: '/api/generate-image',
   path: '/api/generate-image',
@@ -55,6 +62,11 @@ const ApiFxRoute = ApiFxRouteImport.update({
 const ApiFreeChatRoute = ApiFreeChatRouteImport.update({
   id: '/api/free-chat',
   path: '/api/free-chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFindVideoRoute = ApiFindVideoRouteImport.update({
+  id: '/api/find-video',
+  path: '/api/find-video',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiEmbedRoute = ApiEmbedRouteImport.update({
@@ -90,9 +102,11 @@ export interface FileRoutesByFullPath {
   '/api/chat': typeof ApiChatRoute
   '/api/critique': typeof ApiCritiqueRoute
   '/api/embed': typeof ApiEmbedRoute
+  '/api/find-video': typeof ApiFindVideoRoute
   '/api/free-chat': typeof ApiFreeChatRoute
   '/api/fx': typeof ApiFxRoute
   '/api/generate-image': typeof ApiGenerateImageRoute
+  '/api/read-page': typeof ApiReadPageRoute
   '/api/realtime-session': typeof ApiRealtimeSessionRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/api/web-search': typeof ApiWebSearchRoute
@@ -104,9 +118,11 @@ export interface FileRoutesByTo {
   '/api/chat': typeof ApiChatRoute
   '/api/critique': typeof ApiCritiqueRoute
   '/api/embed': typeof ApiEmbedRoute
+  '/api/find-video': typeof ApiFindVideoRoute
   '/api/free-chat': typeof ApiFreeChatRoute
   '/api/fx': typeof ApiFxRoute
   '/api/generate-image': typeof ApiGenerateImageRoute
+  '/api/read-page': typeof ApiReadPageRoute
   '/api/realtime-session': typeof ApiRealtimeSessionRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/api/web-search': typeof ApiWebSearchRoute
@@ -119,9 +135,11 @@ export interface FileRoutesById {
   '/api/chat': typeof ApiChatRoute
   '/api/critique': typeof ApiCritiqueRoute
   '/api/embed': typeof ApiEmbedRoute
+  '/api/find-video': typeof ApiFindVideoRoute
   '/api/free-chat': typeof ApiFreeChatRoute
   '/api/fx': typeof ApiFxRoute
   '/api/generate-image': typeof ApiGenerateImageRoute
+  '/api/read-page': typeof ApiReadPageRoute
   '/api/realtime-session': typeof ApiRealtimeSessionRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/api/web-search': typeof ApiWebSearchRoute
@@ -135,9 +153,11 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/critique'
     | '/api/embed'
+    | '/api/find-video'
     | '/api/free-chat'
     | '/api/fx'
     | '/api/generate-image'
+    | '/api/read-page'
     | '/api/realtime-session'
     | '/api/transcribe'
     | '/api/web-search'
@@ -149,9 +169,11 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/critique'
     | '/api/embed'
+    | '/api/find-video'
     | '/api/free-chat'
     | '/api/fx'
     | '/api/generate-image'
+    | '/api/read-page'
     | '/api/realtime-session'
     | '/api/transcribe'
     | '/api/web-search'
@@ -163,9 +185,11 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/critique'
     | '/api/embed'
+    | '/api/find-video'
     | '/api/free-chat'
     | '/api/fx'
     | '/api/generate-image'
+    | '/api/read-page'
     | '/api/realtime-session'
     | '/api/transcribe'
     | '/api/web-search'
@@ -178,9 +202,11 @@ export interface RootRouteChildren {
   ApiChatRoute: typeof ApiChatRoute
   ApiCritiqueRoute: typeof ApiCritiqueRoute
   ApiEmbedRoute: typeof ApiEmbedRoute
+  ApiFindVideoRoute: typeof ApiFindVideoRoute
   ApiFreeChatRoute: typeof ApiFreeChatRoute
   ApiFxRoute: typeof ApiFxRoute
   ApiGenerateImageRoute: typeof ApiGenerateImageRoute
+  ApiReadPageRoute: typeof ApiReadPageRoute
   ApiRealtimeSessionRoute: typeof ApiRealtimeSessionRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
   ApiWebSearchRoute: typeof ApiWebSearchRoute
@@ -216,6 +242,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRealtimeSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/read-page': {
+      id: '/api/read-page'
+      path: '/api/read-page'
+      fullPath: '/api/read-page'
+      preLoaderRoute: typeof ApiReadPageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/generate-image': {
       id: '/api/generate-image'
       path: '/api/generate-image'
@@ -235,6 +268,13 @@ declare module '@tanstack/react-router' {
       path: '/api/free-chat'
       fullPath: '/api/free-chat'
       preLoaderRoute: typeof ApiFreeChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/find-video': {
+      id: '/api/find-video'
+      path: '/api/find-video'
+      fullPath: '/api/find-video'
+      preLoaderRoute: typeof ApiFindVideoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/embed': {
@@ -282,9 +322,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiChatRoute: ApiChatRoute,
   ApiCritiqueRoute: ApiCritiqueRoute,
   ApiEmbedRoute: ApiEmbedRoute,
+  ApiFindVideoRoute: ApiFindVideoRoute,
   ApiFreeChatRoute: ApiFreeChatRoute,
   ApiFxRoute: ApiFxRoute,
   ApiGenerateImageRoute: ApiGenerateImageRoute,
+  ApiReadPageRoute: ApiReadPageRoute,
   ApiRealtimeSessionRoute: ApiRealtimeSessionRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
   ApiWebSearchRoute: ApiWebSearchRoute,
