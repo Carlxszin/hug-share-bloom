@@ -1,10 +1,22 @@
-import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { Eye, FileCode, Download, ExternalLink, Code2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Eye,
+  FileCode,
+  Download,
+  ExternalLink,
+  Code2,
+  Pencil,
+  Plus,
+  Trash2,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import JSZip from "jszip";
 import { downloadBlob, downloadText } from "@/lib/download";
 import { cn } from "@/lib/utils";
+import type { BuilderActivity } from "@/routes/index";
 
 function bundleForPreview(files: Record<string, string>): string {
   const html = files["index.html"];
@@ -19,12 +31,10 @@ function bundleForPreview(files: Record<string, string>): string {
     return first[1];
   }
   let out = html;
-  // Inline <link rel="stylesheet" href="...css">
   out = out.replace(/<link[^>]+href=["']([^"']+\.css)["'][^>]*>/gi, (match, href) => {
     const css = files[href];
     return css ? `<style>\n${css}\n</style>` : match;
   });
-  // Inline <script src="...js">
   out = out.replace(
     /<script([^>]*)src=["']([^"']+\.js)["']([^>]*)><\/script>/gi,
     (match, pre, src, post) => {
@@ -38,9 +48,15 @@ function bundleForPreview(files: Record<string, string>): string {
 export function BuilderView({
   files,
   onPreviewExternal,
+  activity = [],
+  focusFile = null,
+  streaming = false,
 }: {
   files: Record<string, string>;
   onPreviewExternal?: (html: string) => void;
+  activity?: BuilderActivity[];
+  focusFile?: string | null;
+  streaming?: boolean;
 }) {
   const paths = Object.keys(files).sort((a, b) => {
     if (a === "index.html") return -1;
@@ -48,8 +64,24 @@ export function BuilderView({
     return a.localeCompare(b);
   });
   const [tab, setTab] = useState<"preview" | string>("preview");
+  const [showActivity, setShowActivity] = useState(true);
   const previewHtml = useMemo(() => bundleForPreview(files), [files]);
   const empty = paths.length === 0;
+
+  // Auto-switch to the file being edited while streaming
+  useEffect(() => {
+    if (streaming && focusFile && files[focusFile] !== undefined) {
+      setTab(focusFile);
+    }
+  }, [focusFile, streaming, files]);
+
+  // Once streaming ends, jump back to preview
+  useEffect(() => {
+    if (!streaming && activity.length > 0) {
+      const t = setTimeout(() => setTab("preview"), 600);
+      return () => clearTimeout(t);
+    }
+  }, [streaming, activity.length]);
 
   const activeFile = tab !== "preview" ? files[tab] : null;
   const activeLang = tab !== "preview" ? tab.split(".").pop() : null;
@@ -62,7 +94,7 @@ export function BuilderView({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background/30">
+    <div className="flex flex-col h-full bg-background/30 relative">
       <div className="flex items-center justify-between px-4 h-11 border-b border-white/5 bg-background/40 backdrop-blur-xl shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-thin">
           <TabBtn
@@ -71,17 +103,33 @@ export function BuilderView({
             icon={<Eye className="h-3.5 w-3.5" />}
             label="Preview"
           />
-          {paths.map((p) => (
-            <TabBtn
-              key={p}
-              active={tab === p}
-              onClick={() => setTab(p)}
-              icon={<FileCode className="h-3.5 w-3.5" />}
-              label={p}
-            />
-          ))}
+          {paths.map((p) => {
+            const edited = activity.some((a) => a.path === p && a.ok !== false);
+            return (
+              <TabBtn
+                key={p}
+                active={tab === p}
+                onClick={() => setTab(p)}
+                icon={<FileCode className="h-3.5 w-3.5" />}
+                label={p}
+                pulse={streaming && focusFile === p}
+                dot={edited}
+              />
+            );
+          })}
         </div>
         <div className="flex items-center gap-1 shrink-0 pl-2">
+          {activity.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowActivity((v) => !v)}
+              className="h-7 text-xs gap-1.5"
+            >
+              {streaming && <Loader2 className="h-3 w-3 animate-spin" />}
+              {showActivity ? "Ocultar" : "Mostrar"} edições ({activity.length})
+            </Button>
+          )}
           {tab === "preview" && !empty && onPreviewExternal && (
             <Button
               size="sm"
@@ -119,9 +167,107 @@ export function BuilderView({
             className="absolute inset-0 w-full h-full bg-white"
           />
         ) : activeFile != null ? (
-          <FileViewer path={tab} content={activeFile} ext={activeLang ?? "txt"} />
+          <FileViewer
+            path={tab}
+            content={activeFile}
+            ext={activeLang ?? "txt"}
+            activity={activity.filter((a) => a.path === tab)}
+          />
         ) : null}
+
+        <AnimatePresence>
+          {showActivity && activity.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="absolute top-3 right-3 bottom-3 w-[320px] rounded-xl border border-white/10 bg-background/85 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden"
+            >
+              <div className="flex items-center gap-2 px-3 h-9 border-b border-white/5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                {streaming ? (
+                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                ) : (
+                  <Pencil className="h-3 w-3 text-primary" />
+                )}
+                Processo de edição
+              </div>
+              <div className="flex-1 overflow-y-auto scrollbar-thin p-2 space-y-1.5">
+                <AnimatePresence initial={false}>
+                  {activity.map((a) => (
+                    <ActivityRow key={a.id} a={a} />
+                  ))}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+    </div>
+  );
+}
+
+function ActivityRow({ a }: { a: BuilderActivity }) {
+  const Icon =
+    a.tool === "delete"
+      ? Trash2
+      : a.tool === "edit"
+        ? Pencil
+        : Plus;
+  const color =
+    a.ok === false
+      ? "text-destructive"
+      : a.tool === "delete"
+        ? "text-red-400"
+        : a.tool === "edit"
+          ? "text-amber-400"
+          : "text-emerald-400";
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-2 text-[12px]"
+    >
+      <div className="flex items-center gap-1.5">
+        <Icon className={cn("h-3 w-3 shrink-0", color)} />
+        <span className="font-mono truncate flex-1">{a.path}</span>
+        {a.ok === false && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-destructive">
+            <AlertCircle className="h-3 w-3" /> {a.error}
+          </span>
+        )}
+        {a.size != null && (
+          <span className="text-[10px] text-muted-foreground/70">{a.size}c</span>
+        )}
+      </div>
+      {a.tool === "edit" && a.ok !== false && a.old && a.new && (
+        <div className="mt-1.5 space-y-0.5">
+          <DiffLine kind="del" text={a.old} />
+          <DiffLine kind="add" text={a.new} />
+        </div>
+      )}
+      {a.tool === "write" && a.preview && (
+        <pre className="mt-1.5 text-[10.5px] font-mono text-muted-foreground/80 max-h-16 overflow-hidden whitespace-pre-wrap break-all">
+          {a.preview}
+          {a.size && a.preview.length < a.size ? "…" : ""}
+        </pre>
+      )}
+    </motion.div>
+  );
+}
+
+function DiffLine({ kind, text }: { kind: "add" | "del"; text: string }) {
+  const trimmed = text.length > 160 ? text.slice(0, 160) + "…" : text;
+  return (
+    <div
+      className={cn(
+        "text-[10.5px] font-mono px-1.5 py-0.5 rounded whitespace-pre-wrap break-all",
+        kind === "add"
+          ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
+          : "bg-red-500/10 text-red-300 border border-red-500/20",
+      )}
+    >
+      <span className="opacity-60 mr-1">{kind === "add" ? "+" : "−"}</span>
+      {trimmed}
     </div>
   );
 }
@@ -131,17 +277,21 @@ function TabBtn({
   onClick,
   icon,
   label,
+  pulse,
+  dot,
 }: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  pulse?: boolean;
+  dot?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-1.5 px-3 h-7 rounded-md text-xs transition whitespace-nowrap",
+        "relative flex items-center gap-1.5 px-3 h-7 rounded-md text-xs transition whitespace-nowrap",
         active
           ? "bg-primary/15 text-primary border border-primary/30"
           : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04] border border-transparent",
@@ -149,16 +299,38 @@ function TabBtn({
     >
       {icon}
       <span className="font-mono">{label}</span>
+      {dot && !pulse && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
+      {pulse && (
+        <motion.span
+          className="h-1.5 w-1.5 rounded-full bg-primary"
+          animate={{ opacity: [0.3, 1, 0.3], scale: [0.9, 1.2, 0.9] }}
+          transition={{ duration: 1, repeat: Infinity }}
+        />
+      )}
     </button>
   );
 }
 
-function FileViewer({ path, content, ext }: { path: string; content: string; ext: string }) {
+function FileViewer({
+  path,
+  content,
+  ext,
+  activity,
+}: {
+  path: string;
+  content: string;
+  ext: string;
+  activity: BuilderActivity[];
+}) {
+  const lastEdit = [...activity].reverse().find((a) => a.tool === "edit" && a.ok !== false);
   return (
     <div className="absolute inset-0 flex flex-col">
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-white/[0.02]">
         <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
           {path} · {content.length} chars
+          {lastEdit && (
+            <span className="ml-2 text-amber-400 normal-case">· editado agora</span>
+          )}
         </span>
         <Button
           size="sm"
@@ -170,9 +342,30 @@ function FileViewer({ path, content, ext }: { path: string; content: string; ext
         </Button>
       </div>
       <pre className="flex-1 m-0 p-4 overflow-auto text-[12.5px] leading-relaxed font-mono bg-[#0d1117] text-zinc-200">
-        <code className={`language-${ext}`}>{content}</code>
+        <code className={`language-${ext}`}>
+          {lastEdit && lastEdit.new ? <HighlightedContent content={content} highlight={lastEdit.new} /> : content}
+        </code>
       </pre>
     </div>
+  );
+}
+
+function HighlightedContent({ content, highlight }: { content: string; highlight: string }) {
+  const idx = content.indexOf(highlight);
+  if (idx === -1) return <>{content}</>;
+  return (
+    <>
+      {content.slice(0, idx)}
+      <motion.mark
+        initial={{ backgroundColor: "rgba(245, 158, 11, 0.5)" }}
+        animate={{ backgroundColor: "rgba(245, 158, 11, 0.15)" }}
+        transition={{ duration: 2 }}
+        className="rounded px-0.5 text-amber-100"
+      >
+        {highlight}
+      </motion.mark>
+      {content.slice(idx + highlight.length)}
+    </>
   );
 }
 
