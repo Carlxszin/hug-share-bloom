@@ -6,7 +6,6 @@ import { realtimeCostUSD } from "@/lib/models";
 import {
   closeReservedExternalTabIfUnused,
   openInAppBrowser,
-  reserveExternalTab,
   sendBrowserCommand,
 } from "@/lib/browser-bus";
 import { detectImagePrompt, enqueueImage } from "@/lib/image-queue";
