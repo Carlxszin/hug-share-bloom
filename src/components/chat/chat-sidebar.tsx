@@ -62,6 +62,7 @@ export function ChatSidebar({
         )}
         {sorted.map((c, i) => {
           const active = activeId === c.id;
+          const isBuilder = c.kind === "builder";
           return (
             <motion.div
               key={c.id}
@@ -76,7 +77,11 @@ export function ChatSidebar({
                   : "border-transparent text-muted-foreground hover:text-foreground hover:bg-white/[0.04]",
               )}
             >
-              <MessageSquare className="h-3.5 w-3.5 shrink-0 opacity-70" />
+              {isBuilder ? (
+                <Code2 className={cn("h-3.5 w-3.5 shrink-0", active ? "text-primary" : "text-primary/70")} />
+              ) : (
+                <MessageSquare className="h-3.5 w-3.5 shrink-0 opacity-70" />
+              )}
               {editing === c.id ? (
                 <>
                   <Input
