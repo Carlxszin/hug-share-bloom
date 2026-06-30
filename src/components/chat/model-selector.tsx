@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Zap, Brain, Gauge } from "lucide-react";
+import { Gauge } from "lucide-react";
 
 export function ModelSelector({
   value,
