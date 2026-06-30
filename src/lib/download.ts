@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import type { Message } from "./storage";
 
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
