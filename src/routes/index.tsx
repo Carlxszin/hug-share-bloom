@@ -534,6 +534,19 @@ function ChatPage() {
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
       });
+      logTurn({
+        intent: "builder",
+        model: active.model,
+        mode: "paid",
+        tokensIn: usage.inputTokens,
+        tokensOut: usage.outputTokens,
+        latencyMs: Math.round(performance.now() - tBuilder0),
+        costUSD: usage.usd,
+        costBRL: usage.usd * rate,
+        toolCalls: (fileChanges ?? []).map(() => ({ name: "write_file", ok: true })),
+        retryCount: 0,
+        truncated: false,
+      });
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         updateConversation(active.id, (c) => ({
