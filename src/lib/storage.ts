@@ -39,6 +39,7 @@ export type AgentTool =
   | "extract_structured"
   | "compare_pages"
   | "calculate"
+  | "browse_real"
   | "open_url"
   | "plan"
   | "read_pdf";
