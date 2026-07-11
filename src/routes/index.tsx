@@ -21,6 +21,8 @@ import { detectImagePrompt, enqueueImage } from "@/lib/image-queue";
 import { closeReservedExternalTabIfUnused, openInAppBrowser, reserveExternalTab } from "@/lib/browser-bus";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { IntelligenceButton, IntelligencePanel } from "@/components/chat/intelligence-panel";
+import { MemoryButton, MemoryPanel } from "@/components/chat/memory-panel";
+import { autoCaptureFromUser, buildMemoryAddon } from "@/lib/memory";
 import { detectIntent, logTurn, patchTurn } from "@/lib/metrics";
 import { resolveModel } from "@/lib/router";
 import { findSimilar, saveEntry } from "@/lib/semantic-cache";
@@ -69,6 +71,7 @@ function ChatPage() {
   const [newChatPickerOpen, setNewChatPickerOpen] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [iqOpen, setIqOpen] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const [activity, setActivity] = useState<BuilderActivity[]>([]);
   const [focusFile, setFocusFile] = useState<string | null>(null);
   const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);
@@ -263,13 +266,17 @@ function ChatPage() {
 
     const variant = pickVariant(intent);
     try {
+      // Auto-captura fatos/preferências ditos pelo chefe.
+      try { autoCaptureFromUser(text); } catch { /* noop */ }
+      const memoryAddon = buildMemoryAddon(text);
+      const combinedAddon = [variant.suffix, memoryAddon].filter(Boolean).join("\n\n");
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: routedModel,
           messages: baseMessages.map((m) => ({ role: m.role, content: m.content })),
-          systemAddon: variant.suffix,
+          systemAddon: combinedAddon,
         }),
         signal: controller.signal,
       });
@@ -771,6 +778,7 @@ function ChatPage() {
             >
               <Phone className="h-4 w-4" />
             </Button>
+            <MemoryButton onClick={() => setMemoryOpen(true)} />
             <IntelligenceButton onClick={() => setIqOpen(true)} />
             <ThemeToggle />
           </div>
@@ -892,6 +900,7 @@ function ChatPage() {
       />
       <HtmlPreview html={previewHtml} onClose={() => setPreviewHtml(null)} />
       <IntelligencePanel open={iqOpen} onClose={() => setIqOpen(false)} />
+      <MemoryPanel open={memoryOpen} onClose={() => setMemoryOpen(false)} />
     </div>
   );
 }
