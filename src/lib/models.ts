@@ -61,6 +61,26 @@ export const MODELS: ModelInfo[] = [
     speed: "Rápido",
     reasoning: "Básico",
   },
+  {
+    id: "local/llama3.1",
+    label: "Llama 3.1 (Local)",
+    description: "100% grátis, roda no seu PC via Ollama.",
+    inputPer1M: 0,
+    outputPer1M: 0,
+    contextK: 128,
+    speed: "Rápido",
+    reasoning: "Avançado",
+  },
+  {
+    id: "local/qwen2.5",
+    label: "Qwen 2.5 (Local)",
+    description: "Alternativa local rápida via Ollama.",
+    inputPer1M: 0,
+    outputPer1M: 0,
+    contextK: 128,
+    speed: "Rápido",
+    reasoning: "Avançado",
+  },
 ];
 
 export const DEFAULT_MODEL = "gpt-5-mini";

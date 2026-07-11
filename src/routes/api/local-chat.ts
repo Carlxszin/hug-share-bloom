@@ -4,18 +4,25 @@ import { PERSONA_SYSTEM_VOICE } from "@/lib/persona";
 type Body = {
   model?: string;
   messages: { role: "user" | "assistant" | "system"; content: string }[];
+  systemAddon?: string;
 };
 
-// Proxies to a local Ollama server (http://localhost:11434). Streams NDJSON
-// from Ollama and re-emits as text/plain chunks the client can accumulate.
+// Proxies to a local Ollama server (http://localhost:11434) and emits
+// SSE in the same OpenAI-compatible shape the client already parses
+// for /api/chat: `data: {"choices":[{"delta":{"content":"..."}}]}`
+// followed by `data: {"usage":{...}}` and `data: [DONE]`.
 export const Route = createFileRoute("/api/local-chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
         const body = (await request.json()) as Body;
-        const model = body.model || "llama3.1:8b";
+        const raw = body.model || "llama3.1";
+        // Map short aliases → real Ollama tags.
+        const model = raw.includes(":") ? raw : `${raw}:8b`;
+
+        const system = [PERSONA_SYSTEM_VOICE, body.systemAddon].filter(Boolean).join("\n\n");
         const messages = [
-          { role: "system" as const, content: PERSONA_SYSTEM_VOICE },
+          { role: "system" as const, content: system },
           ...body.messages.filter((m) => m.role !== "system"),
         ];
 
@@ -43,6 +50,10 @@ export const Route = createFileRoute("/api/local-chat")({
             const decoder = new TextDecoder();
             const encoder = new TextEncoder();
             let buf = "";
+            let promptTokens = 0;
+            let completionTokens = 0;
+            const emit = (obj: unknown) =>
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
             try {
               for (;;) {
                 const { done, value } = await reader.read();
@@ -56,14 +67,22 @@ export const Route = createFileRoute("/api/local-chat")({
                     const j = JSON.parse(line) as {
                       message?: { content?: string };
                       done?: boolean;
+                      prompt_eval_count?: number;
+                      eval_count?: number;
                     };
                     const chunk = j.message?.content ?? "";
-                    if (chunk) controller.enqueue(encoder.encode(chunk));
+                    if (chunk) emit({ choices: [{ delta: { content: chunk } }] });
+                    if (j.done) {
+                      promptTokens = j.prompt_eval_count ?? 0;
+                      completionTokens = j.eval_count ?? 0;
+                    }
                   } catch {
                     /* skip malformed line */
                   }
                 }
               }
+              emit({ usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens } });
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
             } finally {
               controller.close();
             }
@@ -71,7 +90,11 @@ export const Route = createFileRoute("/api/local-chat")({
         });
 
         return new Response(stream, {
-          headers: { "Content-Type": "text/plain; charset=utf-8" },
+          headers: {
+            "Content-Type": "text/event-stream; charset=utf-8",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+          },
         });
       },
     },

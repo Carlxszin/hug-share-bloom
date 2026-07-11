@@ -140,6 +140,24 @@ const TOOLS = [
   {
     type: "function" as const,
     function: {
+      name: "browse_real",
+      description:
+        "Navegação real com Chrome (Playwright) rodando localmente em http://localhost:7676. Use quando o chefe pedir para clicar, preencher formulário, logar, ou capturar screenshot fiel de uma SPA. Ações: navigate, screenshot, click, fill. Só funciona se o bridge `node scripts/playwright-bridge.mjs` estiver rodando.",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["navigate", "screenshot", "click", "fill"] },
+          url: { type: "string" },
+          selector: { type: "string" },
+          value: { type: "string" },
+        },
+        required: ["action"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
       name: "open_url",
       description:
         "Open a URL in a new browser tab on the user's machine. Use when the user asks you to 'abrir', 'mostrar', 'tocar' (música → YouTube), or navegar até um site. Always prefer this over only describing a link.",
@@ -157,7 +175,7 @@ const TOOLS = [
 
 const SYSTEM = `Você é Octopus Agent — um executor autônomo de tarefas web. O usuário é o chefe.
 
-Ferramentas: plan, web_search, fetch_page (com cache), extract_structured, compare_pages, calculate, screenshot, read_pdf, open_url.
+Ferramentas: plan, web_search, fetch_page (com cache), extract_structured, compare_pages, calculate, screenshot, browse_real, read_pdf, open_url.
 Princípios:
 - SEMPRE comece chamando plan com 2-6 passos curtos do que vai fazer. Depois execute.
 - AJA, não só descreva. Se o chefe pede algo da web, USE web_search/fetch_page imediatamente.
@@ -629,6 +647,33 @@ export const Route = createFileRoute("/api/agent")({
                         ok: true,
                         screenshotUrl: sUrl,
                         result: "captura gerada",
+                      };
+                    } else if (name === "browse_real") {
+                      const action = String(args.action);
+                      const path =
+                        action === "navigate" ? "/navigate" :
+                        action === "screenshot" ? "/screenshot" :
+                        action === "click" ? "/click" :
+                        action === "fill" ? "/fill" : null;
+                      if (!path) throw new Error(`ação desconhecida: ${action}`);
+                      const r = await fetch(`http://localhost:7676${path}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(args),
+                      }).catch(() => {
+                        throw new Error("Playwright bridge offline (rode `node scripts/playwright-bridge.mjs`)");
+                      });
+                      if (!r.ok) throw new Error(`bridge ${r.status}: ${await r.text()}`);
+                      const j = (await r.json()) as { screenshot?: string; title?: string; url?: string };
+                      toolResult = JSON.stringify(j).slice(0, 4000);
+                      event = {
+                        type: "action",
+                        tool: name,
+                        input: args,
+                        ok: true,
+                        screenshotUrl: j.screenshot,
+                        openedUrl: j.url,
+                        result: j.title ?? `${action} ok`,
                       };
                     } else if (name === "open_url") {
                       const u = String(args.url);

@@ -38,6 +38,7 @@ import {
   type Message,
 } from "@/lib/storage";
 import { costUSD, DEFAULT_MODEL, getModel } from "@/lib/models";
+import { saveChatToVault } from "@/lib/vault";
 
 export const Route = createFileRoute("/")({ component: ChatPage });
 
@@ -113,6 +114,8 @@ function ChatPage() {
       setConversations((prev) => {
         const next = prev.map((c) => (c.id === id ? patch(c) : c));
         saveConversations(next);
+        const updated = next.find((c) => c.id === id);
+        if (updated) saveChatToVault(id, updated);
         return next;
       });
     },
@@ -270,11 +273,14 @@ function ChatPage() {
       try { autoCaptureFromUser(text); } catch { /* noop */ }
       const memoryAddon = buildMemoryAddon(text);
       const combinedAddon = [variant.suffix, memoryAddon].filter(Boolean).join("\n\n");
-      const res = await fetch("/api/chat", {
+      const isLocal = routedModel.startsWith("local/");
+      const endpoint = isLocal ? "/api/local-chat" : "/api/chat";
+      const modelForServer = isLocal ? routedModel.slice("local/".length) : routedModel;
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: routedModel,
+          model: modelForServer,
           messages: baseMessages.map((m) => ({ role: m.role, content: m.content })),
           systemAddon: combinedAddon,
         }),
