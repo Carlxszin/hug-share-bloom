@@ -142,14 +142,23 @@ const TOOLS = [
     function: {
       name: "browse_real",
       description:
-        "Navegação real com Chrome (Playwright) rodando localmente em http://localhost:7676. Use quando o chefe pedir para clicar, preencher formulário, logar, ou capturar screenshot fiel de uma SPA. Ações: navigate, screenshot, click, fill. Só funciona se o bridge `node scripts/playwright-bridge.mjs` estiver rodando.",
+        "Controla o Chrome real/persistente (Playwright bridge em http://localhost:7676). Use para navegar sozinho, ler site renderizado por JS, YouTube, clicar, rolar página, preencher campos, pressionar teclas e capturar screenshot. Ações: navigate, read, screenshot, click, scroll, fill, press. Para click/fill prefira text/label quando não souber CSS selector.",
       parameters: {
         type: "object",
         properties: {
-          action: { type: "string", enum: ["navigate", "screenshot", "click", "fill"] },
+          action: { type: "string", enum: ["navigate", "read", "screenshot", "click", "scroll", "fill", "press"] },
           url: { type: "string" },
           selector: { type: "string" },
+          text: { type: "string", description: "Texto visível, aria-label, title ou placeholder do elemento." },
+          label: { type: "string", description: "Rótulo/placeholder do campo ou botão." },
+          name: { type: "string", description: "Nome acessível do elemento." },
           value: { type: "string" },
+          key: { type: "string", description: "Tecla Playwright, ex: Enter, Escape, ArrowDown." },
+          direction: { type: "string", enum: ["down", "up"] },
+          amount: { type: "number" },
+          submit: { type: "boolean" },
+          tab: { type: "string" },
+          exact: { type: "boolean" },
         },
         required: ["action"],
       },
@@ -179,9 +188,11 @@ Ferramentas: plan, web_search, fetch_page (com cache), extract_structured, compa
 Princípios:
 - SEMPRE comece chamando plan com 2-6 passos curtos do que vai fazer. Depois execute.
 - AJA, não só descreva. Se o chefe pede algo da web, USE web_search/fetch_page imediatamente.
-- Se o pedido envolve abrir, mostrar, tocar, navegar, ouvir música, ver vídeo → SEMPRE chame open_url com a URL apropriada.
+- Se o chefe pedir para rolar, clicar, navegar sozinho, interagir, ler YouTube/site moderno ou ver o que está na tela → use browse_real. NUNCA peça para o chefe clicar/rolar manualmente antes de tentar browse_real.
+- Para YouTube ou sites com JavaScript: use browse_real navigate/read, depois click/scroll/press quando necessário. open_url é só fallback visual quando o bridge estiver offline ou para abrir um link simples.
 - Pedidos nativos viram equivalentes web: "abre o Chrome" → google.com; "toca X no Spotify" → https://open.spotify.com/search/X; música/clipe → https://www.youtube.com/results?search_query=...
 - Para PDFs (URLs .pdf, artigos, papers, boletos), use read_pdf em vez de fetch_page.
+- Depois de qualquer click/fill/scroll/press com browse_real, leia o snapshot retornado e continue a tarefa automaticamente.
 - Reaproveite páginas já lidas (cache, custo zero).
 - Prefira extract_structured/compare_pages a múltiplos fetch_page.
 - Use calculate para qualquer conta.
@@ -432,14 +443,40 @@ export const Route = createFileRoute("/api/agent")({
                   snippet: "Resultados do YouTube",
                 };
 
-                send({
-                  type: "action",
-                  tool: "open_url",
-                  input: { url: best.url, reason: best.title },
-                  ok: true,
-                  openedUrl: best.url,
-                  result: best.title,
-                });
+                let openedByBrowser = false;
+                try {
+                  const r = await fetch("http://localhost:7676/navigate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "navigate", url: best.url }),
+                  });
+                  if (r.ok) {
+                    const j = (await r.json()) as { title?: string; url?: string; screenshot?: string };
+                    openedByBrowser = true;
+                    send({
+                      type: "action",
+                      tool: "browse_real",
+                      input: { action: "navigate", url: best.url },
+                      ok: true,
+                      openedUrl: j.url ?? best.url,
+                      screenshotUrl: j.screenshot,
+                      result: j.title ?? best.title,
+                    });
+                  }
+                } catch {
+                  /* bridge local offline: fallback abaixo */
+                }
+
+                if (!openedByBrowser) {
+                  send({
+                    type: "action",
+                    tool: "open_url",
+                    input: { url: best.url, reason: best.title },
+                    ok: true,
+                    openedUrl: best.url,
+                    result: best.title,
+                  });
+                }
                 send({
                   type: "done",
                   message: `Pronto, chefe — abri no YouTube: ${best.title}\n${best.url}`,
@@ -652,9 +689,12 @@ export const Route = createFileRoute("/api/agent")({
                       const action = String(args.action);
                       const path =
                         action === "navigate" ? "/navigate" :
+                        action === "read" ? "/read" :
                         action === "screenshot" ? "/screenshot" :
                         action === "click" ? "/click" :
-                        action === "fill" ? "/fill" : null;
+                        action === "scroll" ? "/scroll" :
+                        action === "fill" ? "/fill" :
+                        action === "press" ? "/press" : null;
                       if (!path) throw new Error(`ação desconhecida: ${action}`);
                       const r = await fetch(`http://localhost:7676${path}`, {
                         method: "POST",
@@ -664,8 +704,19 @@ export const Route = createFileRoute("/api/agent")({
                         throw new Error("Playwright bridge offline (rode `node scripts/playwright-bridge.mjs`)");
                       });
                       if (!r.ok) throw new Error(`bridge ${r.status}: ${await r.text()}`);
-                      const j = (await r.json()) as { screenshot?: string; title?: string; url?: string };
-                      toolResult = JSON.stringify(j).slice(0, 4000);
+                      const j = (await r.json()) as {
+                        screenshot?: string;
+                        title?: string;
+                        url?: string;
+                        text?: string;
+                        elements?: Array<{ role?: string; text?: string; selector?: string; visible?: boolean }>;
+                      };
+                      toolResult = JSON.stringify({
+                        url: j.url,
+                        title: j.title,
+                        text: j.text?.slice(0, 5000),
+                        elements: j.elements?.slice(0, 50),
+                      }).slice(0, 8000);
                       event = {
                         type: "action",
                         tool: name,
@@ -673,7 +724,7 @@ export const Route = createFileRoute("/api/agent")({
                         ok: true,
                         screenshotUrl: j.screenshot,
                         openedUrl: j.url,
-                        result: j.title ?? `${action} ok`,
+                        result: j.title ? `${action}: ${j.title}` : `${action} ok`,
                       };
                     } else if (name === "open_url") {
                       const u = String(args.url);
