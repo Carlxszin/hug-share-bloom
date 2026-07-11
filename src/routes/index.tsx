@@ -612,7 +612,6 @@ function ChatPage() {
   const onSubmitAgent = async (text: string) => {
     if (!active || !text.trim() || loading) return;
     text = text.trim();
-    reserveExternalTab();
 
     const userMsg: Message = {
       id: crypto.randomUUID(),

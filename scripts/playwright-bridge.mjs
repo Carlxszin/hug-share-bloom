@@ -44,11 +44,36 @@ async function getPage(tab = "main") {
     page = tab === "main" && existing.length ? existing[0] : await ctx.newPage();
     pages.set(tab, page);
   }
+  await page.bringToFront().catch(() => {});
   return page;
 }
 
 async function collectElements(page) {
   return page.evaluate(() => {
+    const cssPath = (el) => {
+      if (!(el instanceof Element)) return "";
+      if (el.id) return `#${CSS.escape(el.id)}`;
+      const parts = [];
+      let node = el;
+      while (node && node.nodeType === Node.ELEMENT_NODE && parts.length < 6) {
+        const tag = node.tagName.toLowerCase();
+        const dataTest = node.getAttribute("data-testid") || node.getAttribute("data-test");
+        if (dataTest) {
+          parts.unshift(`${tag}[data-testid="${CSS.escape(dataTest)}"]`);
+          break;
+        }
+        let nth = 1;
+        let prev = node.previousElementSibling;
+        while (prev) {
+          if (prev.tagName === node.tagName) nth += 1;
+          prev = prev.previousElementSibling;
+        }
+        parts.unshift(`${tag}:nth-of-type(${nth})`);
+        node = node.parentElement;
+      }
+      return parts.join(" > ");
+    };
+
     const pickText = (el) =>
       (el.getAttribute("aria-label") ||
         el.getAttribute("title") ||
@@ -69,19 +94,15 @@ async function collectElements(page) {
         const text = pickText(el);
         const tag = el.tagName.toLowerCase();
         const role = el.getAttribute("role") || tag;
-        const id = el.id ? `#${CSS.escape(el.id)}` : "";
         const name = el.getAttribute("name");
-        const testId = el.getAttribute("data-testid") || el.getAttribute("data-test");
-        const selector =
-          id ||
-          (testId ? `[data-testid="${CSS.escape(testId)}"]` : "") ||
-          (name ? `${tag}[name="${CSS.escape(name)}"]` : "") ||
-          `${tag}:nth-of-type(${index + 1})`;
+        const href = el.getAttribute("href");
+        const selector = name ? `${tag}[name="${CSS.escape(name)}"]` : cssPath(el);
         return {
           index,
           role,
           text: text.slice(0, 120),
           selector,
+          href,
           visible:
             rect.width > 0 &&
             rect.height > 0 &&
@@ -116,7 +137,7 @@ async function findLocator(page, body) {
   const text = String(body.text || body.label || body.name || "").trim();
   if (!text) throw new Error("Envie selector ou text/label para clicar/preencher.");
 
-  const exact = body.exact !== false;
+  const exact = body.exact === true;
   const candidates = [
     page.getByRole("button", { name: text, exact }),
     page.getByRole("link", { name: text, exact }),
@@ -129,14 +150,24 @@ async function findLocator(page, body) {
 
   for (const locator of candidates) {
     try {
-      if ((await locator.count()) > 0) return locator.first();
+      const count = await locator.count();
+      for (let i = 0; i < count; i++) {
+        const item = locator.nth(i);
+        if (await item.isVisible().catch(() => false)) return item;
+      }
+      if (count > 0) return locator.first();
     } catch {
       /* try next */
     }
   }
 
-  const fuzzy = page.locator(`text=${text}`).first();
-  if ((await fuzzy.count().catch(() => 0)) > 0) return fuzzy;
+  const fuzzy = page.locator(`text=${text}`);
+  const count = await fuzzy.count().catch(() => 0);
+  for (let i = 0; i < count; i++) {
+    const item = fuzzy.nth(i);
+    if (await item.isVisible().catch(() => false)) return item;
+  }
+  if (count > 0) return fuzzy.first();
   throw new Error(`Elemento não encontrado: ${text}`);
 }
 
