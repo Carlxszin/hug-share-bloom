@@ -140,20 +140,6 @@ const TOOLS = [
   {
     type: "function" as const,
     function: {
-      name: "screenshot",
-      description: "Capture a screenshot of a public URL (thum.io).",
-      parameters: {
-        type: "object",
-        properties: {
-          url: { type: "string" },
-        },
-        required: ["url"],
-      },
-    },
-  },
-  {
-    type: "function" as const,
-    function: {
       name: "browse_real",
       description:
         "Navegação real com Chrome (Playwright) rodando localmente em http://localhost:7676. Use quando o chefe pedir para clicar, preencher formulário, logar, ou capturar screenshot fiel de uma SPA. Ações: navigate, screenshot, click, fill. Só funciona se o bridge `node scripts/playwright-bridge.mjs` estiver rodando.",
@@ -189,7 +175,7 @@ const TOOLS = [
 
 const SYSTEM = `Você é Octopus Agent — um executor autônomo de tarefas web. O usuário é o chefe.
 
-Ferramentas: plan, web_search, fetch_page (com cache), extract_structured, compare_pages, calculate, screenshot, read_pdf, open_url.
+Ferramentas: plan, web_search, fetch_page (com cache), extract_structured, compare_pages, calculate, screenshot, browse_real, read_pdf, open_url.
 Princípios:
 - SEMPRE comece chamando plan com 2-6 passos curtos do que vai fazer. Depois execute.
 - AJA, não só descreva. Se o chefe pede algo da web, USE web_search/fetch_page imediatamente.
