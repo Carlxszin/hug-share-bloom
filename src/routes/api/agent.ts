@@ -176,7 +176,7 @@ const TOOLS = [
     function: {
       name: "open_url",
       description:
-        "Open a URL in a new browser tab on the user's machine. Use when the user asks you to 'abrir', 'mostrar', 'tocar' (música → YouTube), or navegar até um site. Always prefer this over only describing a link.",
+        "Fallback: abrir uma URL fora do agente quando browse_real/Chromium estiver offline. Para tarefas de navegação, clique, rolagem, YouTube ou leitura visual, prefira browse_real.",
       parameters: {
         type: "object",
         properties: {
