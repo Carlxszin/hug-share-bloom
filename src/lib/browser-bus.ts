@@ -45,18 +45,16 @@ export function reserveExternalTab() {
 export function openExternalTab(url: string) {
   if (!url || typeof window === "undefined") return false;
   try {
-    let tab = reservedExternalTab && !reservedExternalTab.closed ? reservedExternalTab : null;
-    if (!tab) tab = window.open("", "octopus-agent-popup");
+    // Reusa a janela nomeada: o próprio browser navega sem violar same-origin.
+    const tab = window.open(url, "octopus-agent-popup");
     if (!tab) return false;
     reservedExternalTab = tab;
     reservedExternalTabUsed = true;
     try {
-      tab.opener = null;
+      tab.focus();
     } catch {
       /* ignore */
     }
-    tab.location.href = url;
-    tab.focus();
     return true;
   } catch {
     return false;
