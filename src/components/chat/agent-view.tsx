@@ -10,6 +10,8 @@ import {
   Database,
   GitCompare,
   Calculator,
+  ListChecks,
+  FileText,
   ExternalLink as OpenIcon,
 
 } from "lucide-react";
@@ -23,6 +25,8 @@ const TOOL_META: Record<AgentTool, { icon: typeof Search; label: string }> = {
   compare_pages: { icon: GitCompare, label: "Comparação" },
   calculate: { icon: Calculator, label: "Cálculo" },
   open_url: { icon: OpenIcon, label: "Abrir aba" },
+  plan: { icon: ListChecks, label: "Plano" },
+  read_pdf: { icon: FileText, label: "PDF" },
 };
 
 export function AgentView({
@@ -111,6 +115,16 @@ function StepCard({ step }: { step: AgentStep }) {
           </div>
           {step.result && (
             <div className="text-[11px] text-muted-foreground mt-1">{step.result}</div>
+          )}
+          {step.plan && step.plan.length > 0 && (
+            <ol className="mt-2 space-y-1 text-[11px] text-foreground/85">
+              {step.plan.map((p, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                  <span>{p}</span>
+                </li>
+              ))}
+            </ol>
           )}
           {step.error && (
             <div className="text-[11px] text-destructive mt-1">{step.error}</div>

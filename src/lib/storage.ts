@@ -39,7 +39,9 @@ export type AgentTool =
   | "extract_structured"
   | "compare_pages"
   | "calculate"
-  | "open_url";
+  | "open_url"
+  | "plan"
+  | "read_pdf";
 
 export type AgentStep = {
   id: string;
@@ -51,6 +53,7 @@ export type AgentStep = {
   screenshotUrl?: string;
   openedUrl?: string;
   links?: { title: string; url: string; snippet?: string }[];
+  plan?: string[];
   cached?: boolean;
   ts: number;
 };

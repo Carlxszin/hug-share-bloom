@@ -30,6 +30,34 @@ const TOOLS = [
   {
     type: "function" as const,
     function: {
+      name: "plan",
+      description:
+        "Declare seu plano ANTES de executar. Chame UMA vez no início com uma lista curta (2-6 passos) de subtarefas em Português. Ajuda o chefe a acompanhar o progresso.",
+      parameters: {
+        type: "object",
+        properties: {
+          steps: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 6 },
+        },
+        required: ["steps"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "read_pdf",
+      description:
+        "Baixa um PDF público (URL terminando em .pdf ou content-type application/pdf) e retorna o texto extraído em Markdown. Use para artigos, papers, manuais, boletos.",
+      parameters: {
+        type: "object",
+        properties: { url: { type: "string" } },
+        required: ["url"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
       name: "web_search",
       description:
         "Search the web via DuckDuckGo. Returns up to 8 results (title, url, snippet).",
@@ -129,11 +157,13 @@ const TOOLS = [
 
 const SYSTEM = `Você é Octopus Agent — um executor autônomo de tarefas web. O usuário é o chefe.
 
-Ferramentas: web_search, fetch_page (com cache), extract_structured, compare_pages, calculate, screenshot, open_url.
+Ferramentas: plan, web_search, fetch_page (com cache), extract_structured, compare_pages, calculate, screenshot, read_pdf, open_url.
 Princípios:
+- SEMPRE comece chamando plan com 2-6 passos curtos do que vai fazer. Depois execute.
 - AJA, não só descreva. Se o chefe pede algo da web, USE web_search/fetch_page imediatamente.
-- Se o pedido envolve abrir, mostrar, tocar, navegar, ouvir música, ver vídeo → SEMPRE chame open_url com a URL apropriada (YouTube para músicas/vídeos, site oficial, etc).
+- Se o pedido envolve abrir, mostrar, tocar, navegar, ouvir música, ver vídeo → SEMPRE chame open_url com a URL apropriada.
 - Pedidos nativos viram equivalentes web: "abre o Chrome" → google.com; "toca X no Spotify" → https://open.spotify.com/search/X; música/clipe → https://www.youtube.com/results?search_query=...
+- Para PDFs (URLs .pdf, artigos, papers, boletos), use read_pdf em vez de fetch_page.
 - Reaproveite páginas já lidas (cache, custo zero).
 - Prefira extract_structured/compare_pages a múltiplos fetch_page.
 - Use calculate para qualquer conta.
@@ -485,7 +515,37 @@ export const Route = createFileRoute("/api/agent")({
                     const args = JSON.parse(call.function.arguments);
                     const name = call.function.name;
 
-                    if (name === "web_search") {
+                    if (name === "plan") {
+                      const steps = Array.isArray(args.steps)
+                        ? (args.steps as unknown[]).map((s) => String(s)).slice(0, 6)
+                        : [];
+                      toolResult = `Plano registrado com ${steps.length} passos.`;
+                      event = {
+                        type: "action",
+                        tool: name,
+                        input: args,
+                        ok: true,
+                        plan: steps,
+                        result: `${steps.length} passos`,
+                      };
+                    } else if (name === "read_pdf") {
+                      const target = String(args.url);
+                      const proxied = `https://r.jina.ai/${target.replace(/^https?:\/\//, "https://")}`;
+                      const r = await fetch(proxied, {
+                        headers: { "Accept": "text/plain", "X-Return-Format": "markdown" },
+                      });
+                      if (!r.ok) throw new Error(`PDF ${r.status}`);
+                      const txt = (await r.text()).slice(0, 8000);
+                      pageCache.set(target, txt);
+                      toolResult = txt;
+                      event = {
+                        type: "action",
+                        tool: name,
+                        input: args,
+                        ok: true,
+                        result: `${txt.length} chars extraídos do PDF`,
+                      };
+                    } else if (name === "web_search") {
                       const links = await ddgSearch(String(args.query));
                       toolResult = JSON.stringify(links);
                       event = {
