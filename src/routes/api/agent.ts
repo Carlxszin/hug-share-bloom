@@ -456,7 +456,7 @@ async function runOpenAI(apiKey: string, model: string, messages: ChatMessage[])
       messages,
       tools: TOOLS,
       tool_choice: "auto",
-      parallel_tool_calls: true,
+      parallel_tool_calls: false,
     }),
   });
   if (!res.ok) {
