@@ -14,6 +14,8 @@ import { Route as ApiWebSearchRouteImport } from './routes/api/web-search'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiRealtimeSessionRouteImport } from './routes/api/realtime-session'
 import { Route as ApiReadPageRouteImport } from './routes/api/read-page'
+import { Route as ApiLocalModelsRouteImport } from './routes/api/local-models'
+import { Route as ApiLocalChatRouteImport } from './routes/api/local-chat'
 import { Route as ApiGenerateImageRouteImport } from './routes/api/generate-image'
 import { Route as ApiFxRouteImport } from './routes/api/fx'
 import { Route as ApiFreeChatRouteImport } from './routes/api/free-chat'
@@ -47,6 +49,16 @@ const ApiRealtimeSessionRoute = ApiRealtimeSessionRouteImport.update({
 const ApiReadPageRoute = ApiReadPageRouteImport.update({
   id: '/api/read-page',
   path: '/api/read-page',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLocalModelsRoute = ApiLocalModelsRouteImport.update({
+  id: '/api/local-models',
+  path: '/api/local-models',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLocalChatRoute = ApiLocalChatRouteImport.update({
+  id: '/api/local-chat',
+  path: '/api/local-chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiGenerateImageRoute = ApiGenerateImageRouteImport.update({
@@ -106,6 +118,8 @@ export interface FileRoutesByFullPath {
   '/api/free-chat': typeof ApiFreeChatRoute
   '/api/fx': typeof ApiFxRoute
   '/api/generate-image': typeof ApiGenerateImageRoute
+  '/api/local-chat': typeof ApiLocalChatRoute
+  '/api/local-models': typeof ApiLocalModelsRoute
   '/api/read-page': typeof ApiReadPageRoute
   '/api/realtime-session': typeof ApiRealtimeSessionRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -122,6 +136,8 @@ export interface FileRoutesByTo {
   '/api/free-chat': typeof ApiFreeChatRoute
   '/api/fx': typeof ApiFxRoute
   '/api/generate-image': typeof ApiGenerateImageRoute
+  '/api/local-chat': typeof ApiLocalChatRoute
+  '/api/local-models': typeof ApiLocalModelsRoute
   '/api/read-page': typeof ApiReadPageRoute
   '/api/realtime-session': typeof ApiRealtimeSessionRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -139,6 +155,8 @@ export interface FileRoutesById {
   '/api/free-chat': typeof ApiFreeChatRoute
   '/api/fx': typeof ApiFxRoute
   '/api/generate-image': typeof ApiGenerateImageRoute
+  '/api/local-chat': typeof ApiLocalChatRoute
+  '/api/local-models': typeof ApiLocalModelsRoute
   '/api/read-page': typeof ApiReadPageRoute
   '/api/realtime-session': typeof ApiRealtimeSessionRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -157,6 +175,8 @@ export interface FileRouteTypes {
     | '/api/free-chat'
     | '/api/fx'
     | '/api/generate-image'
+    | '/api/local-chat'
+    | '/api/local-models'
     | '/api/read-page'
     | '/api/realtime-session'
     | '/api/transcribe'
@@ -173,6 +193,8 @@ export interface FileRouteTypes {
     | '/api/free-chat'
     | '/api/fx'
     | '/api/generate-image'
+    | '/api/local-chat'
+    | '/api/local-models'
     | '/api/read-page'
     | '/api/realtime-session'
     | '/api/transcribe'
@@ -189,6 +211,8 @@ export interface FileRouteTypes {
     | '/api/free-chat'
     | '/api/fx'
     | '/api/generate-image'
+    | '/api/local-chat'
+    | '/api/local-models'
     | '/api/read-page'
     | '/api/realtime-session'
     | '/api/transcribe'
@@ -206,6 +230,8 @@ export interface RootRouteChildren {
   ApiFreeChatRoute: typeof ApiFreeChatRoute
   ApiFxRoute: typeof ApiFxRoute
   ApiGenerateImageRoute: typeof ApiGenerateImageRoute
+  ApiLocalChatRoute: typeof ApiLocalChatRoute
+  ApiLocalModelsRoute: typeof ApiLocalModelsRoute
   ApiReadPageRoute: typeof ApiReadPageRoute
   ApiRealtimeSessionRoute: typeof ApiRealtimeSessionRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
@@ -247,6 +273,20 @@ declare module '@tanstack/react-router' {
       path: '/api/read-page'
       fullPath: '/api/read-page'
       preLoaderRoute: typeof ApiReadPageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/local-models': {
+      id: '/api/local-models'
+      path: '/api/local-models'
+      fullPath: '/api/local-models'
+      preLoaderRoute: typeof ApiLocalModelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/local-chat': {
+      id: '/api/local-chat'
+      path: '/api/local-chat'
+      fullPath: '/api/local-chat'
+      preLoaderRoute: typeof ApiLocalChatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/generate-image': {
@@ -326,6 +366,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFreeChatRoute: ApiFreeChatRoute,
   ApiFxRoute: ApiFxRoute,
   ApiGenerateImageRoute: ApiGenerateImageRoute,
+  ApiLocalChatRoute: ApiLocalChatRoute,
+  ApiLocalModelsRoute: ApiLocalModelsRoute,
   ApiReadPageRoute: ApiReadPageRoute,
   ApiRealtimeSessionRoute: ApiRealtimeSessionRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
@@ -334,13 +376,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

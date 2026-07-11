@@ -85,6 +85,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Octopus — Assistente de IA com custo em BRL" },
       { name: "description", content: "Plataforma de chat com modelos GPT-5 da OpenAI, streaming em tempo real e monitoramento de custos em USD e Real." },
+      { name: "theme-color", content: "#f97316" },
       { property: "og:title", content: "Octopus" },
       { property: "og:description", content: "Chat com IA e controle de gastos em tempo real." },
       { property: "og:type", content: "website" },
@@ -92,6 +93,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "icon", href: "/icons/icon-192.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/icons/icon-192.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -122,6 +126,10 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    void import("../lib/pwa-register").then((m) => m.registerPwa());
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
