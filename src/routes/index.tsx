@@ -274,18 +274,45 @@ function ChatPage() {
       const memoryAddon = buildMemoryAddon(text);
       const combinedAddon = [variant.suffix, memoryAddon].filter(Boolean).join("\n\n");
       const isLocal = routedModel.startsWith("local/");
-      const endpoint = isLocal ? "/api/local-chat" : "/api/chat";
-      const modelForServer = isLocal ? routedModel.slice("local/".length) : routedModel;
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: modelForServer,
-          messages: baseMessages.map((m) => ({ role: m.role, content: m.content })),
-          systemAddon: combinedAddon,
-        }),
-        signal: controller.signal,
-      });
+      // Modo Local: o browser fala DIRETO com o Ollama do PC do chefe.
+      // Não passa pelo servidor porque a Cloudflare não enxerga localhost:11434.
+      let res: Response;
+      if (isLocal) {
+        const shortModel = routedModel.slice("local/".length);
+        const ollamaModel = shortModel.includes(":") ? shortModel : `${shortModel}:8b`;
+        try {
+          res = await fetch("http://localhost:11434/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: ollamaModel,
+              messages: [
+                { role: "system", content: combinedAddon || "Você é o Octopus. Sempre chame o usuário de 'chefe'." },
+                ...baseMessages.map((m) => ({ role: m.role, content: m.content })),
+              ],
+              stream: true,
+            }),
+            signal: controller.signal,
+          });
+        } catch {
+          throw new Error(
+            "Ollama offline ou bloqueado por CORS. No PowerShell rode:\n" +
+            '  setx OLLAMA_ORIGINS "*"\n' +
+            "depois feche e reabra o `ollama serve`.",
+          );
+        }
+      } else {
+        res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: routedModel,
+            messages: baseMessages.map((m) => ({ role: m.role, content: m.content })),
+            systemAddon: combinedAddon,
+          }),
+          signal: controller.signal,
+        });
+      }
 
       if (!res.ok || !res.body) {
         const err = await res.text();
@@ -314,13 +341,15 @@ function ChatPage() {
         buffer = lines.pop() ?? "";
         for (const raw of lines) {
           const line = raw.trim();
-          if (!line.startsWith("data:")) continue;
-          const data = line.slice(5).trim();
-          if (data === "[DONE]") continue;
+          if (!line) continue;
+          // Ollama direto = NDJSON puro; OpenAI/proxy = SSE "data: {...}"
+          const payload = line.startsWith("data:") ? line.slice(5).trim() : line;
+          if (payload === "[DONE]") continue;
           try {
-            const json = JSON.parse(data);
-            const delta = json.choices?.[0]?.delta?.content;
-            if (typeof delta === "string") {
+            const json = JSON.parse(payload);
+            const delta =
+              json.choices?.[0]?.delta?.content ?? json.message?.content ?? "";
+            if (typeof delta === "string" && delta) {
               assembled += delta;
               updateConversation(active.id, (c) => ({
                 ...c,
@@ -330,6 +359,12 @@ function ChatPage() {
               }));
             }
             if (json.usage) usage = json.usage;
+            if (json.done && (json.prompt_eval_count || json.eval_count)) {
+              usage = {
+                prompt_tokens: json.prompt_eval_count ?? 0,
+                completion_tokens: json.eval_count ?? 0,
+              };
+            }
           } catch {
             /* ignore parse errors */
           }
