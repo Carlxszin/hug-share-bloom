@@ -699,7 +699,7 @@ function ChatPage() {
               cached: ev.cached as boolean | undefined,
               ts: Date.now(),
             };
-            if (step.openedUrl) {
+            if (step.openedUrl && step.tool === "open_url") {
               openedSomething = true;
               openInAppBrowser(step.openedUrl);
             }
