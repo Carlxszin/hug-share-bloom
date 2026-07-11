@@ -116,6 +116,16 @@ function StepCard({ step }: { step: AgentStep }) {
           {step.result && (
             <div className="text-[11px] text-muted-foreground mt-1">{step.result}</div>
           )}
+          {step.plan && step.plan.length > 0 && (
+            <ol className="mt-2 space-y-1 text-[11px] text-foreground/85">
+              {step.plan.map((p, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                  <span>{p}</span>
+                </li>
+              ))}
+            </ol>
+          )}
           {step.error && (
             <div className="text-[11px] text-destructive mt-1">{step.error}</div>
           )}
