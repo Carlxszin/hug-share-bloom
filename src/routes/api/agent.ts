@@ -443,14 +443,40 @@ export const Route = createFileRoute("/api/agent")({
                   snippet: "Resultados do YouTube",
                 };
 
-                send({
-                  type: "action",
-                  tool: "open_url",
-                  input: { url: best.url, reason: best.title },
-                  ok: true,
-                  openedUrl: best.url,
-                  result: best.title,
-                });
+                let openedByBrowser = false;
+                try {
+                  const r = await fetch("http://localhost:7676/navigate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "navigate", url: best.url }),
+                  });
+                  if (r.ok) {
+                    const j = (await r.json()) as { title?: string; url?: string; screenshot?: string };
+                    openedByBrowser = true;
+                    send({
+                      type: "action",
+                      tool: "browse_real",
+                      input: { action: "navigate", url: best.url },
+                      ok: true,
+                      openedUrl: j.url ?? best.url,
+                      screenshotUrl: j.screenshot,
+                      result: j.title ?? best.title,
+                    });
+                  }
+                } catch {
+                  /* bridge local offline: fallback abaixo */
+                }
+
+                if (!openedByBrowser) {
+                  send({
+                    type: "action",
+                    tool: "open_url",
+                    input: { url: best.url, reason: best.title },
+                    ok: true,
+                    openedUrl: best.url,
+                    result: best.title,
+                  });
+                }
                 send({
                   type: "done",
                   message: `Pronto, chefe — abri no YouTube: ${best.title}\n${best.url}`,
