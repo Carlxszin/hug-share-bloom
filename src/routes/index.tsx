@@ -893,7 +893,7 @@ function ChatPage() {
           <>
             <div ref={scrollRef} className="relative flex-1 overflow-y-auto scrollbar-thin z-10">
               {active.messages.length === 0 ? (
-                <EmptyState onPick={setInput} />
+                <EmptyState onPick={prefill} />
               ) : (
                 <div className="max-w-3xl mx-auto">
                   {active.messages.map((m) => (
@@ -905,8 +905,7 @@ function ChatPage() {
 
             <div className="relative z-10">
               <Composer
-                value={input}
-                onChange={setInput}
+                ref={composerRef}
                 onSubmit={onSubmit}
                 onStop={onStop}
                 loading={loading}
