@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CallModal } from "@/components/chat/call-modal";
 import { FreeCallModal } from "@/components/chat/free-call-modal";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
-import { Composer } from "@/components/chat/composer";
+import { Composer, type ComposerHandle } from "@/components/chat/composer";
 import { CostBar } from "@/components/chat/cost-bar";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { HtmlPreview } from "@/components/chat/html-preview";
