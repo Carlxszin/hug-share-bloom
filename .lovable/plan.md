@@ -1,39 +1,79 @@
-# Plano — Octopus: aba indevida + leitura inteligente de páginas
+# Plano — Octopus Local Turbo
 
-## Problema 1 — Abre aba sozinho ao enviar qualquer mensagem
-Hoje, todo prompt/início de chamada dispara `reserveExternalTab()` em `src/lib/browser-bus.ts`, que faz um `window.open("")` imediato (a "aba reservada Octopus"). Isso foi adicionado para driblar o bloqueio de popup quando o agente *de fato* precisa abrir um site, mas hoje executa **antes** de saber se há intenção de navegação.
+Quatro blocos independentes. Vou implementar todos, mas cada um funciona sozinho — se um serviço externo (Ollama/Playwright/Whisper) não estiver rodando, o app continua funcionando nos modos atuais.
 
-### Correção planejada
-1. Remover a chamada automática de `reserveExternalTab()` no submit do chat e no início da chamada em `src/routes/index.tsx`, `call-modal.tsx`, `free-call-modal.tsx`.
-2. Reservar a aba **só sob gesto explícito**:
-   - Quando o usuário clicar em um link/preview gerado pelo agente.
-   - Quando o agente realmente chamar a tool `open_url` (lazy: tentar `openExternalTab` direto; se bloqueado, mostrar um botão "Abrir site" no chat que reserva no clique).
-3. Detectar intenção de navegação no prompt antes de reservar (regex simples: "abrir", "tocar", "põe", "mostra", URL crua). Sem intenção = sem aba.
+## 1. Ollama — 3º modo "Local" (0 custo, offline)
 
-## Problema 2 — Na chamada o agente é "burro" com vídeos/páginas
-Hoje, na chamada (Realtime e Free), as únicas tools são `web_search` (DDG) e `open_url`. Ele não lê o conteúdo da página, não enxerga campos, não sabe onde está cada coisa. Por isso parece desorientado quando peço um vídeo.
+- Novo modo ao lado de **Grátis** / **Pago**: **Local**.
+- Detecção automática: ping em `http://localhost:11434/api/tags` ao abrir o app; se responder, mostra o modo Local no seletor com badge do modelo detectado (ex.: `llama3.1:8b`).
+- Nova rota `src/routes/api/local-chat.ts` → proxy pra `http://localhost:11434/api/chat` (stream). Mesma persona "Octopus/Chefe".
+- Seletor de modelo Local: lista o que o Ollama tem instalado.
+- `src/lib/models.ts`: preço = 0 pra qualquer modelo `local/*`.
+- Fallback: se Ollama sumir no meio da sessão, cai pro Grátis com aviso.
 
-### Correção planejada — "Olho do Octopus"
-1. **Nova aba dedicada de leitura** (`/reader?url=...`) que abre o site **dentro** de um iframe próprio em uma janela controlada pelo Octopus, com toolbar e painel lateral mostrando o que ele está extraindo. Permite ao usuário acompanhar visualmente.
-2. **Novas tools no Realtime e Free-chat**:
-   - `read_page(url)` — fetch server-side, extrai texto + headings + links + formulários (name/id/label/placeholder) e devolve JSON resumido.
-   - `find_video(query)` — busca no YouTube (já temos `youtubeSearch`) + devolve top-3 com título, canal, duração e ID; modelo escolhe e chama `open_url` com `youtube.com/watch?v=ID`.
-   - `inspect_fields(url)` — versão focada em formulários, lista cada campo com seletor/label, para ele saber "onde está cada coisa".
-3. **Pipeline de contexto na call**: ao chamar `read_page`, devolver no `tool_output` um resumo curto (≤ 800 tokens) + lista de seções, e injetar mensagem de sistema do tipo "Você acabou de ler X. Resuma para o chefe em 1 frase antes de agir".
-4. **Cache** desses reads usando o cache já existente do agente, para não pagar duas vezes a mesma página.
-5. **UI da call**: no `SideFeed`, mostrar cards "🔎 leu página X" e "🎬 escolheu vídeo Y" para feedback visual em tempo real.
+## 2. Playwright real (navegação de verdade no agente)
 
-## Arquivos que serão tocados (na execução, não agora)
-- `src/lib/browser-bus.ts` — remover auto-reserve.
-- `src/routes/index.tsx`, `src/components/chat/composer.tsx` — não reservar aba no submit.
-- `src/components/chat/call-modal.tsx`, `free-call-modal.tsx` — reservar só quando tool `open_url` for chamada.
-- `src/routes/api/realtime-session.ts` — registrar tools `read_page`, `find_video`, `inspect_fields`.
-- `src/routes/api/free-chat.ts` — idem para o modo grátis.
-- `src/routes/api/read-page.ts` *(novo)* — fetch + extração HTML → JSON.
-- `src/routes/api/find-video.ts` *(novo)* — wrapper YouTube.
-- `src/components/chat/side-feed.tsx` — novos cards de tool.
+- Novo serviço opcional `scripts/playwright-bridge.mjs` — servidor Node standalone (porta 7676) que expõe:
+  - `POST /navigate` `{url}` → abre página, retorna html+screenshot base64
+  - `POST /click` `{url, selector}`
+  - `POST /fill` `{url, selector, value}`
+  - `POST /screenshot` `{url}` → PNG full-page
+- Instalação: `npx playwright install chromium` (comando no README).
+- Nova tool no agente: `browse_real(url, actions[])` — usa Playwright se `localhost:7676` responder; senão cai no `fetch` atual.
+- Atualiza `src/routes/api/agent.ts` e `free-chat.ts` pra registrar a tool.
+- UI: no `embedded-browser`, botão "🎭 abrir com Playwright" que injeta screenshot ao vivo.
 
-## Custo extra esperado
-Zero no modo Free (tudo via fetch + scraping). No Realtime, ~+150 tokens por `read_page` (resumo enxuto), ainda dentro do teto de 200 tokens já configurado.
+## 3. Whisper local
 
-Quer que eu prossiga com a implementação, chefe?
+- Novo serviço opcional `scripts/whisper-bridge.py` usando `faster-whisper` (modelo `base` = ~140MB, roda em CPU).
+  - `POST /transcribe` (multipart audio) → `{text}`
+  - Porta 7677.
+- `src/routes/api/transcribe.ts` passa a tentar `localhost:7677` PRIMEIRO; se falhar, usa OpenAI Whisper.
+- Modo Grátis + Whisper local = transcrição 100% offline e gratuita.
+- README: `pip install faster-whisper flask` + `python scripts/whisper-bridge.py`.
+
+## 4. PWA instalável (versão local vira "aplicativo")
+
+- Adicionar `vite-plugin-pwa` com `generateSW` + `registerType: autoUpdate`.
+- Wrapper de registro com guardas (não registra em preview Lovable, iframe, dev).
+- `public/manifest.webmanifest`: nome "Octopus", tema laranja `#f97316`, `display: standalone`.
+- Ícones 192/512/maskable em `public/icons/` (gerados agora).
+- `NetworkFirst` pra HTML, `CacheFirst` pra assets hashed.
+- Instalável no Chrome/Edge — ícone na área de trabalho, roda em janela própria.
+- Modo offline: cache do shell; APIs continuam precisando de rede/serviços locais.
+
+## Arquivos que vou tocar/criar
+
+Criar:
+- `src/routes/api/local-chat.ts`
+- `src/routes/api/local-models.ts` (lista modelos Ollama)
+- `scripts/playwright-bridge.mjs`
+- `scripts/whisper-bridge.py`
+- `public/manifest.webmanifest`
+- `public/icons/icon-192.png`, `icon-512.png`, `icon-maskable.png`
+- `src/lib/pwa-register.ts`
+- `src/lib/local-services.ts` (detecção Ollama/Playwright/Whisper)
+- `README-LOCAL.md` (passo a passo dos 3 serviços)
+
+Editar:
+- `src/lib/models.ts` — preço 0 pros `local/*`
+- `src/routes/api/transcribe.ts` — tenta Whisper local primeiro
+- `src/routes/api/agent.ts`, `free-chat.ts` — nova tool `browse_real`
+- `src/components/chat/new-chat-picker.tsx` / seletor de modo — 3º botão "Local"
+- `src/components/chat/embedded-browser.tsx` — botão Playwright
+- `src/routes/__root.tsx` — link manifest + theme-color
+- `vite.config.ts` — plugin PWA
+- `package.json` — deps
+
+## Ordem de execução (na hora)
+
+1. PWA (rápido, valor imediato — vira app)
+2. Ollama (mais fácil de configurar pro chefe testar)
+3. Whisper local (fallback automático)
+4. Playwright bridge (mais pesado)
+
+## Custo
+
+R$ 0 em tudo. Ollama+Whisper+Playwright rodam localmente. PWA é só bundle.
+
+Posso começar, chefe?
