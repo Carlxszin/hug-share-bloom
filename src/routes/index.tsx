@@ -157,17 +157,16 @@ function ChatPage() {
 
   const onStop = () => abortRef.current?.abort();
 
-  const onSubmit = async () => {
-    if (!active || !input.trim() || loading) return;
-    if (active.kind === "builder") return onSubmitBuilder();
-    if (active.kind === "agent") return onSubmitAgent();
-    const text = input.trim();
+  const onSubmit = async (text: string) => {
+    if (!active || !text.trim() || loading) return;
+    if (active.kind === "builder") return onSubmitBuilder(text);
+    if (active.kind === "agent") return onSubmitAgent(text);
+    text = text.trim();
 
     // Image-generation shortcut: enqueue + lightweight ack, no model call.
     const imagePrompt = detectImagePrompt(text);
     if (imagePrompt) {
       enqueueImage(imagePrompt);
-      setInput("");
       const userMsg: Message = {
         id: crypto.randomUUID(),
         role: "user",
@@ -195,7 +194,6 @@ function ChatPage() {
     if (/\b(abr[ei]r?|tocar?|p[õo]e|p[õo]r|mostr[ae]r?|coloca|navega[rd]?o?|http[s]?:\/\/)/i.test(text)) {
       reserveExternalTab();
     }
-    setInput("");
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
