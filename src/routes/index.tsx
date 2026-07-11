@@ -63,7 +63,8 @@ export type BuilderActivity = {
 function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string>("");
-  const [input, setInput] = useState("");
+  const composerRef = useRef<ComposerHandle>(null);
+  const prefill = useCallback((v: string) => composerRef.current?.setValue(v), []);
   const [loading, setLoading] = useState(false);
   const [rate, setRate] = useState(5.4);
   const [callOpen, setCallOpen] = useState(false);
