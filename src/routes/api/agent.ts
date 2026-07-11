@@ -57,6 +57,7 @@ const TOOLS = [
   },
   {
     type: "function" as const,
+    function: {
       name: "web_search",
       description:
         "Search the web via DuckDuckGo. Returns up to 8 results (title, url, snippet).",
