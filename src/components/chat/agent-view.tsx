@@ -12,6 +12,7 @@ import {
   Calculator,
   ListChecks,
   FileText,
+  MousePointerClick,
   ExternalLink as OpenIcon,
 
 } from "lucide-react";
@@ -24,6 +25,7 @@ const TOOL_META: Record<AgentTool, { icon: typeof Search; label: string }> = {
   extract_structured: { icon: Database, label: "Extração" },
   compare_pages: { icon: GitCompare, label: "Comparação" },
   calculate: { icon: Calculator, label: "Cálculo" },
+  browse_real: { icon: MousePointerClick, label: "Navegador" },
   open_url: { icon: OpenIcon, label: "Abrir aba" },
   plan: { icon: ListChecks, label: "Plano" },
   read_pdf: { icon: FileText, label: "PDF" },
