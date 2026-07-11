@@ -341,13 +341,15 @@ function ChatPage() {
         buffer = lines.pop() ?? "";
         for (const raw of lines) {
           const line = raw.trim();
-          if (!line.startsWith("data:")) continue;
-          const data = line.slice(5).trim();
-          if (data === "[DONE]") continue;
+          if (!line) continue;
+          // Ollama direto = NDJSON puro; OpenAI/proxy = SSE "data: {...}"
+          const payload = line.startsWith("data:") ? line.slice(5).trim() : line;
+          if (payload === "[DONE]") continue;
           try {
-            const json = JSON.parse(data);
-            const delta = json.choices?.[0]?.delta?.content;
-            if (typeof delta === "string") {
+            const json = JSON.parse(payload);
+            const delta =
+              json.choices?.[0]?.delta?.content ?? json.message?.content ?? "";
+            if (typeof delta === "string" && delta) {
               assembled += delta;
               updateConversation(active.id, (c) => ({
                 ...c,
@@ -357,6 +359,12 @@ function ChatPage() {
               }));
             }
             if (json.usage) usage = json.usage;
+            if (json.done && (json.prompt_eval_count || json.eval_count)) {
+              usage = {
+                prompt_tokens: json.prompt_eval_count ?? 0,
+                completion_tokens: json.eval_count ?? 0,
+              };
+            }
           } catch {
             /* ignore parse errors */
           }
