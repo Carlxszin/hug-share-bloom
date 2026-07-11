@@ -1,16 +1,48 @@
-// Optional Playwright bridge for Octopus.
+// Optional Playwright bridge for Octopus — PERSISTENT session.
 // Run: npx playwright install chromium && node scripts/playwright-bridge.mjs
-// Exposes a tiny HTTP API on http://localhost:7676 that the agent uses when
-// available (falls back to fetch scraping when this server is down).
+//
+// Mantém UMA janela do Chromium aberta o tempo todo. Cada requisição reusa
+// a mesma aba (ou cria abas nomeadas via `tab`). Assim o login, cookies e
+// estado ficam salvos entre chamadas — nada de abrir janela nova toda hora.
 import http from "node:http";
+import path from "node:path";
+import os from "node:os";
+import fs from "node:fs";
 import { chromium } from "playwright";
 
 const PORT = 7676;
-let browser;
+const USER_DATA_DIR = path.join(os.homedir(), "octopus-data", "browser-profile");
+fs.mkdirSync(USER_DATA_DIR, { recursive: true });
 
-async function getBrowser() {
-  if (!browser) browser = await chromium.launch({ headless: true });
-  return browser;
+let context;
+const pages = new Map(); // tabName -> Page
+
+async function getContext() {
+  if (context) return context;
+  // launchPersistentContext = mesmo perfil (cookies, login, histórico) sempre.
+  // headless:false pro chefe VER o navegador e poder interagir junto.
+  context = await chromium.launchPersistentContext(USER_DATA_DIR, {
+    headless: false,
+    viewport: { width: 1280, height: 800 },
+    args: ["--start-maximized"],
+  });
+  context.on("close", () => {
+    context = undefined;
+    pages.clear();
+  });
+  return context;
+}
+
+async function getPage(tab = "main") {
+  const ctx = await getContext();
+  let page = pages.get(tab);
+  if (!page || page.isClosed()) {
+    // Reusa a primeira aba existente se for "main" e ainda não tivermos registrado.
+    const existing = ctx.pages();
+    page = tab === "main" && existing.length ? existing[0] : await ctx.newPage();
+    pages.set(tab, page);
+  }
+  return page;
 }
 
 function json(res, code, data) {
@@ -32,16 +64,16 @@ async function readJson(req) {
   });
 }
 
-async function withPage(url, fn) {
-  const b = await getBrowser();
-  const ctx = await b.newContext({ viewport: { width: 1280, height: 800 } });
-  const page = await ctx.newPage();
-  try {
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20_000 });
-    return await fn(page);
-  } finally {
-    await ctx.close();
-  }
+async function snapshot(page) {
+  const title = await page.title().catch(() => "");
+  const text = await page.innerText("body").catch(() => "");
+  const shot = await page.screenshot({ fullPage: false, type: "png" });
+  return {
+    url: page.url(),
+    title,
+    text: text.slice(0, 4000),
+    screenshot: `data:image/png;base64,${shot.toString("base64")}`,
+  };
 }
 
 const server = http.createServer(async (req, res) => {
@@ -55,42 +87,62 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
-    if (req.url === "/health") return json(res, 200, { ok: true });
+    if (req.url === "/health") return json(res, 200, { ok: true, persistent: true });
+
+    if (req.url === "/tabs" && req.method === "GET") {
+      const ctx = await getContext();
+      return json(
+        res,
+        200,
+        { tabs: ctx.pages().map((p, i) => ({ index: i, url: p.url(), title: undefined })) },
+      );
+    }
+
+    const body = req.method === "POST" ? await readJson(req) : {};
+    const tab = body.tab ?? "main";
 
     if (req.url === "/navigate" && req.method === "POST") {
-      const { url } = await readJson(req);
-      const data = await withPage(url, async (page) => {
-        const title = await page.title();
-        const text = (await page.innerText("body")).slice(0, 4000);
-        const shot = await page.screenshot({ fullPage: false, type: "png" });
-        return { title, text, screenshot: `data:image/png;base64,${shot.toString("base64")}` };
-      });
-      return json(res, 200, data);
+      const page = await getPage(tab);
+      await page.goto(body.url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      return json(res, 200, await snapshot(page));
+    }
+
+    if (req.url === "/snapshot" && req.method === "POST") {
+      const page = await getPage(tab);
+      return json(res, 200, await snapshot(page));
     }
 
     if (req.url === "/screenshot" && req.method === "POST") {
-      const { url, fullPage = false } = await readJson(req);
-      const shot = await withPage(url, (page) => page.screenshot({ fullPage, type: "png" }));
+      const page = await getPage(tab);
+      const shot = await page.screenshot({ fullPage: !!body.fullPage, type: "png" });
       return json(res, 200, { screenshot: `data:image/png;base64,${shot.toString("base64")}` });
     }
 
     if (req.url === "/click" && req.method === "POST") {
-      const { url, selector } = await readJson(req);
-      const data = await withPage(url, async (page) => {
-        await page.click(selector, { timeout: 5000 });
-        await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
-        return { url: page.url(), text: (await page.innerText("body")).slice(0, 2000) };
-      });
-      return json(res, 200, data);
+      const page = await getPage(tab);
+      await page.click(body.selector, { timeout: 8000 });
+      await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+      return json(res, 200, await snapshot(page));
     }
 
     if (req.url === "/fill" && req.method === "POST") {
-      const { url, selector, value } = await readJson(req);
-      const data = await withPage(url, async (page) => {
-        await page.fill(selector, value, { timeout: 5000 });
-        return { ok: true };
-      });
-      return json(res, 200, data);
+      const page = await getPage(tab);
+      await page.fill(body.selector, body.value, { timeout: 8000 });
+      if (body.submit) await page.keyboard.press("Enter");
+      return json(res, 200, await snapshot(page));
+    }
+
+    if (req.url === "/eval" && req.method === "POST") {
+      const page = await getPage(tab);
+      const result = await page.evaluate(body.script);
+      return json(res, 200, { result });
+    }
+
+    if (req.url === "/close-tab" && req.method === "POST") {
+      const page = pages.get(tab);
+      if (page && !page.isClosed()) await page.close();
+      pages.delete(tab);
+      return json(res, 200, { ok: true });
     }
 
     return json(res, 404, { error: "not found" });
@@ -100,5 +152,6 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`🎭 Playwright bridge on http://localhost:${PORT}`);
+  console.log(`🎭 Playwright bridge PERSISTENTE em http://localhost:${PORT}`);
+  console.log(`   Perfil salvo em: ${USER_DATA_DIR}`);
 });
