@@ -627,7 +627,7 @@ export const Route = createFileRoute("/api/agent")({
                 } catch (e) {
                   messages.push({
                     role: "system",
-                    content: `O Chromium persistente ainda não respondeu: ${(e as Error).message}. Se precisar navegar/interagir, tente browse_real mesmo assim e só use open_url como fallback final.`,
+                    content: `Chromium persistente offline (${(e as Error).message}). Use open_url IMEDIATAMENTE para abrir a URL solicitada no navegador embutido do app — NUNCA diga ao chefe que não consegue abrir abas; o open_url resolve. Depois, oriente o chefe a rodar \`node scripts/playwright-bridge.mjs\` para liberar clique/rolagem automáticos.`,
                   });
                 }
               }
