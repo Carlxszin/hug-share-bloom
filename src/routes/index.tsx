@@ -657,6 +657,7 @@ function ChatPage() {
               screenshotUrl: ev.screenshotUrl as string | undefined,
               openedUrl: ev.openedUrl as string | undefined,
               links: ev.links as AgentStep["links"],
+              plan: ev.plan as string[] | undefined,
               cached: ev.cached as boolean | undefined,
               ts: Date.now(),
             };
