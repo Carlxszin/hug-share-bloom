@@ -35,15 +35,15 @@ export const Route = createFileRoute("/api/realtime-session")({
                   transcription: null,
                   turn_detection: {
                     type: "server_vad",
-                    threshold: 0.7,
-                    prefix_padding_ms: 150,
-                    silence_duration_ms: 300,
+                    threshold: 0.8,
+                    prefix_padding_ms: 100,
+                    silence_duration_ms: 200,
                     create_response: true,
                     interrupt_response: true,
                   },
                 },
               },
-              max_output_tokens: 200,
+              max_output_tokens: 90,
               tools: [
                 {
                   type: "function",
@@ -96,7 +96,7 @@ export const Route = createFileRoute("/api/realtime-session")({
               tool_choice: "auto",
               instructions:
                 body.instructions ??
-                `${PERSONA_SYSTEM_VOICE}\n\nFerramentas em tempo real:\n- web_search(query): busca rápida na web.\n- find_video(query): acha vídeos no YouTube — use SEMPRE para pedidos de música/vídeo/clipe.\n- read_page(url): lê o conteúdo + campos de uma página (use para entender onde está cada coisa).\n- open_url(url): abre uma página no navegador embutido do chefe.\n\nFluxo padrão:\n1) Para vídeo/música → find_video(termo) → escolha o 1º → open_url(url do vídeo).\n2) Para site específico → open_url direto e, se precisar agir, depois read_page para entender campos.\n3) Confirme em 1 frase curta ("Pronto, chefe."). Nunca diga que não pode — você PODE.`,
+                `${PERSONA_SYSTEM_VOICE}\n\nREGRA DE ECONOMIA (obrigatória):\n- Responda em UMA frase curta, máx 15 palavras.\n- Nunca repita o que o chefe disse.\n- Sem introduções, sem "claro", sem despedidas longas.\n- Se for executar ferramenta, fale só "Já vou, chefe." e execute.\n\nFerramentas: web_search, find_video, read_page, open_url.\nFluxo: música/vídeo → find_video → open_url. Site → open_url direto.`,
             },
           }),
         });
