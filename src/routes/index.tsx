@@ -274,18 +274,45 @@ function ChatPage() {
       const memoryAddon = buildMemoryAddon(text);
       const combinedAddon = [variant.suffix, memoryAddon].filter(Boolean).join("\n\n");
       const isLocal = routedModel.startsWith("local/");
-      const endpoint = isLocal ? "/api/local-chat" : "/api/chat";
-      const modelForServer = isLocal ? routedModel.slice("local/".length) : routedModel;
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: modelForServer,
-          messages: baseMessages.map((m) => ({ role: m.role, content: m.content })),
-          systemAddon: combinedAddon,
-        }),
-        signal: controller.signal,
-      });
+      // Modo Local: o browser fala DIRETO com o Ollama do PC do chefe.
+      // Não passa pelo servidor porque a Cloudflare não enxerga localhost:11434.
+      let res: Response;
+      if (isLocal) {
+        const shortModel = routedModel.slice("local/".length);
+        const ollamaModel = shortModel.includes(":") ? shortModel : `${shortModel}:8b`;
+        try {
+          res = await fetch("http://localhost:11434/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: ollamaModel,
+              messages: [
+                { role: "system", content: combinedAddon || "Você é o Octopus. Sempre chame o usuário de 'chefe'." },
+                ...baseMessages.map((m) => ({ role: m.role, content: m.content })),
+              ],
+              stream: true,
+            }),
+            signal: controller.signal,
+          });
+        } catch {
+          throw new Error(
+            "Ollama offline ou bloqueado por CORS. No PowerShell rode:\n" +
+            '  setx OLLAMA_ORIGINS "*"\n' +
+            "depois feche e reabra o `ollama serve`.",
+          );
+        }
+      } else {
+        res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: routedModel,
+            messages: baseMessages.map((m) => ({ role: m.role, content: m.content })),
+            systemAddon: combinedAddon,
+          }),
+          signal: controller.signal,
+        });
+      }
 
       if (!res.ok || !res.body) {
         const err = await res.text();
