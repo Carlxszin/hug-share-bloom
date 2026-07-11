@@ -663,9 +663,12 @@ export const Route = createFileRoute("/api/agent")({
                       const action = String(args.action);
                       const path =
                         action === "navigate" ? "/navigate" :
+                        action === "read" ? "/read" :
                         action === "screenshot" ? "/screenshot" :
                         action === "click" ? "/click" :
-                        action === "fill" ? "/fill" : null;
+                        action === "scroll" ? "/scroll" :
+                        action === "fill" ? "/fill" :
+                        action === "press" ? "/press" : null;
                       if (!path) throw new Error(`ação desconhecida: ${action}`);
                       const r = await fetch(`http://localhost:7676${path}`, {
                         method: "POST",
@@ -675,8 +678,19 @@ export const Route = createFileRoute("/api/agent")({
                         throw new Error("Playwright bridge offline (rode `node scripts/playwright-bridge.mjs`)");
                       });
                       if (!r.ok) throw new Error(`bridge ${r.status}: ${await r.text()}`);
-                      const j = (await r.json()) as { screenshot?: string; title?: string; url?: string };
-                      toolResult = JSON.stringify(j).slice(0, 4000);
+                      const j = (await r.json()) as {
+                        screenshot?: string;
+                        title?: string;
+                        url?: string;
+                        text?: string;
+                        elements?: Array<{ role?: string; text?: string; selector?: string; visible?: boolean }>;
+                      };
+                      toolResult = JSON.stringify({
+                        url: j.url,
+                        title: j.title,
+                        text: j.text?.slice(0, 5000),
+                        elements: j.elements?.slice(0, 50),
+                      }).slice(0, 8000);
                       event = {
                         type: "action",
                         tool: name,
@@ -684,7 +698,7 @@ export const Route = createFileRoute("/api/agent")({
                         ok: true,
                         screenshotUrl: j.screenshot,
                         openedUrl: j.url,
-                        result: j.title ?? `${action} ok`,
+                        result: j.title ? `${action}: ${j.title}` : `${action} ok`,
                       };
                     } else if (name === "open_url") {
                       const u = String(args.url);
