@@ -14,6 +14,7 @@ import { Route as ApiWebSearchRouteImport } from './routes/api/web-search'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiRealtimeSessionRouteImport } from './routes/api/realtime-session'
 import { Route as ApiReadPageRouteImport } from './routes/api/read-page'
+import { Route as ApiLocalVaultRouteImport } from './routes/api/local-vault'
 import { Route as ApiLocalModelsRouteImport } from './routes/api/local-models'
 import { Route as ApiLocalChatRouteImport } from './routes/api/local-chat'
 import { Route as ApiGenerateImageRouteImport } from './routes/api/generate-image'
@@ -49,6 +50,11 @@ const ApiRealtimeSessionRoute = ApiRealtimeSessionRouteImport.update({
 const ApiReadPageRoute = ApiReadPageRouteImport.update({
   id: '/api/read-page',
   path: '/api/read-page',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLocalVaultRoute = ApiLocalVaultRouteImport.update({
+  id: '/api/local-vault',
+  path: '/api/local-vault',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiLocalModelsRoute = ApiLocalModelsRouteImport.update({
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/api/generate-image': typeof ApiGenerateImageRoute
   '/api/local-chat': typeof ApiLocalChatRoute
   '/api/local-models': typeof ApiLocalModelsRoute
+  '/api/local-vault': typeof ApiLocalVaultRoute
   '/api/read-page': typeof ApiReadPageRoute
   '/api/realtime-session': typeof ApiRealtimeSessionRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByTo {
   '/api/generate-image': typeof ApiGenerateImageRoute
   '/api/local-chat': typeof ApiLocalChatRoute
   '/api/local-models': typeof ApiLocalModelsRoute
+  '/api/local-vault': typeof ApiLocalVaultRoute
   '/api/read-page': typeof ApiReadPageRoute
   '/api/realtime-session': typeof ApiRealtimeSessionRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/api/generate-image': typeof ApiGenerateImageRoute
   '/api/local-chat': typeof ApiLocalChatRoute
   '/api/local-models': typeof ApiLocalModelsRoute
+  '/api/local-vault': typeof ApiLocalVaultRoute
   '/api/read-page': typeof ApiReadPageRoute
   '/api/realtime-session': typeof ApiRealtimeSessionRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/api/generate-image'
     | '/api/local-chat'
     | '/api/local-models'
+    | '/api/local-vault'
     | '/api/read-page'
     | '/api/realtime-session'
     | '/api/transcribe'
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
     | '/api/generate-image'
     | '/api/local-chat'
     | '/api/local-models'
+    | '/api/local-vault'
     | '/api/read-page'
     | '/api/realtime-session'
     | '/api/transcribe'
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
     | '/api/generate-image'
     | '/api/local-chat'
     | '/api/local-models'
+    | '/api/local-vault'
     | '/api/read-page'
     | '/api/realtime-session'
     | '/api/transcribe'
@@ -232,6 +244,7 @@ export interface RootRouteChildren {
   ApiGenerateImageRoute: typeof ApiGenerateImageRoute
   ApiLocalChatRoute: typeof ApiLocalChatRoute
   ApiLocalModelsRoute: typeof ApiLocalModelsRoute
+  ApiLocalVaultRoute: typeof ApiLocalVaultRoute
   ApiReadPageRoute: typeof ApiReadPageRoute
   ApiRealtimeSessionRoute: typeof ApiRealtimeSessionRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
@@ -273,6 +286,13 @@ declare module '@tanstack/react-router' {
       path: '/api/read-page'
       fullPath: '/api/read-page'
       preLoaderRoute: typeof ApiReadPageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/local-vault': {
+      id: '/api/local-vault'
+      path: '/api/local-vault'
+      fullPath: '/api/local-vault'
+      preLoaderRoute: typeof ApiLocalVaultRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/local-models': {
@@ -368,6 +388,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGenerateImageRoute: ApiGenerateImageRoute,
   ApiLocalChatRoute: ApiLocalChatRoute,
   ApiLocalModelsRoute: ApiLocalModelsRoute,
+  ApiLocalVaultRoute: ApiLocalVaultRoute,
   ApiReadPageRoute: ApiReadPageRoute,
   ApiRealtimeSessionRoute: ApiRealtimeSessionRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
