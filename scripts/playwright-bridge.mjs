@@ -17,6 +17,8 @@ fs.mkdirSync(USER_DATA_DIR, { recursive: true });
 let context;
 const pages = new Map(); // tabName -> Page
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function getContext() {
   if (context) return context;
   // launchPersistentContext = mesmo perfil (cookies, login, histórico) sempre.
@@ -45,6 +47,99 @@ async function getPage(tab = "main") {
   return page;
 }
 
+async function collectElements(page) {
+  return page.evaluate(() => {
+    const pickText = (el) =>
+      (el.getAttribute("aria-label") ||
+        el.getAttribute("title") ||
+        el.getAttribute("placeholder") ||
+        el.innerText ||
+        el.textContent ||
+        "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    return Array.from(
+      document.querySelectorAll(
+        'a, button, input, textarea, select, [role="button"], [role="link"], [role="menuitem"], [contenteditable="true"]',
+      ),
+    )
+      .map((el, index) => {
+        const rect = el.getBoundingClientRect();
+        const text = pickText(el);
+        const tag = el.tagName.toLowerCase();
+        const role = el.getAttribute("role") || tag;
+        const id = el.id ? `#${CSS.escape(el.id)}` : "";
+        const name = el.getAttribute("name");
+        const testId = el.getAttribute("data-testid") || el.getAttribute("data-test");
+        const selector =
+          id ||
+          (testId ? `[data-testid="${CSS.escape(testId)}"]` : "") ||
+          (name ? `${tag}[name="${CSS.escape(name)}"]` : "") ||
+          `${tag}:nth-of-type(${index + 1})`;
+        return {
+          index,
+          role,
+          text: text.slice(0, 120),
+          selector,
+          visible:
+            rect.width > 0 &&
+            rect.height > 0 &&
+            rect.bottom >= 0 &&
+            rect.right >= 0 &&
+            rect.top <= window.innerHeight &&
+            rect.left <= window.innerWidth,
+        };
+      })
+      .filter((x) => x.text || x.role === "input" || x.role === "textarea")
+      .slice(0, 80);
+  });
+}
+
+async function snapshot(page) {
+  const title = await page.title().catch(() => "");
+  const text = await page.innerText("body").catch(() => "");
+  const elements = await collectElements(page).catch(() => []);
+  const shot = await page.screenshot({ fullPage: false, type: "png" });
+  return {
+    url: page.url(),
+    title,
+    text: text.slice(0, 5000),
+    elements,
+    screenshot: `data:image/png;base64,${shot.toString("base64")}`,
+  };
+}
+
+async function findLocator(page, body) {
+  if (body.selector) return page.locator(body.selector).first();
+
+  const text = String(body.text || body.label || body.name || "").trim();
+  if (!text) throw new Error("Envie selector ou text/label para clicar/preencher.");
+
+  const exact = body.exact !== false;
+  const candidates = [
+    page.getByRole("button", { name: text, exact }),
+    page.getByRole("link", { name: text, exact }),
+    page.getByRole("menuitem", { name: text, exact }),
+    page.getByLabel(text, { exact }),
+    page.getByPlaceholder(text, { exact }),
+    page.getByTitle(text, { exact }),
+    page.getByText(text, { exact }),
+  ];
+
+  for (const locator of candidates) {
+    try {
+      if ((await locator.count()) > 0) return locator.first();
+    } catch {
+      /* try next */
+    }
+  }
+
+  const fuzzy = page.locator(`text=${text}`).first();
+  if ((await fuzzy.count().catch(() => 0)) > 0) return fuzzy;
+  throw new Error(`Elemento não encontrado: ${text}`);
+}
+
 function json(res, code, data) {
   res.writeHead(code, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
   res.end(JSON.stringify(data));
@@ -62,18 +157,6 @@ async function readJson(req) {
       }
     });
   });
-}
-
-async function snapshot(page) {
-  const title = await page.title().catch(() => "");
-  const text = await page.innerText("body").catch(() => "");
-  const shot = await page.screenshot({ fullPage: false, type: "png" });
-  return {
-    url: page.url(),
-    title,
-    text: text.slice(0, 4000),
-    screenshot: `data:image/png;base64,${shot.toString("base64")}`,
-  };
 }
 
 const server = http.createServer(async (req, res) => {
@@ -104,6 +187,16 @@ const server = http.createServer(async (req, res) => {
     if (req.url === "/navigate" && req.method === "POST") {
       const page = await getPage(tab);
       await page.goto(body.url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+      return json(res, 200, await snapshot(page));
+    }
+
+    if (req.url === "/read" && req.method === "POST") {
+      const page = await getPage(tab);
+      if (body.url) {
+        await page.goto(body.url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+        await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+      }
       return json(res, 200, await snapshot(page));
     }
 
@@ -120,15 +213,41 @@ const server = http.createServer(async (req, res) => {
 
     if (req.url === "/click" && req.method === "POST") {
       const page = await getPage(tab);
-      await page.click(body.selector, { timeout: 8000 });
+      const locator = await findLocator(page, body);
+      await locator.scrollIntoViewIfNeeded({ timeout: 8000 }).catch(() => {});
+      await locator.click({ timeout: 8000 });
       await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+      return json(res, 200, await snapshot(page));
+    }
+
+    if (req.url === "/scroll" && req.method === "POST") {
+      const page = await getPage(tab);
+      const amount = Number(body.amount ?? 700);
+      const direction = String(body.direction ?? "down").toLowerCase();
+      if (body.selector || body.text || body.label || body.name) {
+        const locator = await findLocator(page, body);
+        await locator.scrollIntoViewIfNeeded({ timeout: 8000 });
+      } else {
+        const delta = direction === "up" ? -Math.abs(amount) : Math.abs(amount);
+        await page.mouse.wheel(0, delta);
+      }
+      await sleep(350);
       return json(res, 200, await snapshot(page));
     }
 
     if (req.url === "/fill" && req.method === "POST") {
       const page = await getPage(tab);
-      await page.fill(body.selector, body.value, { timeout: 8000 });
+      const locator = await findLocator(page, body);
+      await locator.fill(String(body.value ?? ""), { timeout: 8000 });
       if (body.submit) await page.keyboard.press("Enter");
+      await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+      return json(res, 200, await snapshot(page));
+    }
+
+    if (req.url === "/press" && req.method === "POST") {
+      const page = await getPage(tab);
+      await page.keyboard.press(String(body.key ?? "Enter"));
+      await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
       return json(res, 200, await snapshot(page));
     }
 
