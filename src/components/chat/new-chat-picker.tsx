@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, Code2, Sparkles, Zap, Brain, Bot } from "lucide-react";
+import { MessageSquare, Code2, Sparkles, Zap, Brain, Bot, HardDrive } from "lucide-react";
 import { MODELS } from "@/lib/models";
 
 const BUILDER_MODELS = ["gpt-5", "gpt-4o"];
@@ -72,6 +72,29 @@ export function NewChatPicker({
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Pesquisa na web, lê páginas e tira screenshots — autônomo, ~R$ 0,01/tarefa.
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => onPick("chat", "local/llama3.1")}
+                className="text-left p-4 rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.05] to-transparent hover:border-emerald-500/40 transition group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <HardDrive className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-sm flex items-center gap-1.5">
+                      Local (100% grátis)
+                      <span className="text-[9px] uppercase tracking-wider bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded-full font-semibold">
+                        offline
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Roda no seu PC via Ollama —{" "}
+                      <span className="font-mono text-foreground/80">llama3.1</span>, sem custo, sem internet.
                     </p>
                   </div>
                 </div>
