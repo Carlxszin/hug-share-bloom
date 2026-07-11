@@ -38,6 +38,7 @@ import {
   type Message,
 } from "@/lib/storage";
 import { costUSD, DEFAULT_MODEL, getModel } from "@/lib/models";
+import { saveChatToVault } from "@/lib/vault";
 
 export const Route = createFileRoute("/")({ component: ChatPage });
 
@@ -113,6 +114,8 @@ function ChatPage() {
       setConversations((prev) => {
         const next = prev.map((c) => (c.id === id ? patch(c) : c));
         saveConversations(next);
+        const updated = next.find((c) => c.id === id);
+        if (updated) saveChatToVault(id, updated);
         return next;
       });
     },
