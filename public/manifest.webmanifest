@@ -1,0 +1,16 @@
+{
+  "name": "Octopus — Assistente de IA",
+  "short_name": "Octopus",
+  "description": "Assistente Octopus com modos Grátis, Pago e Local (Ollama).",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#f97316",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
