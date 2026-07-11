@@ -609,11 +609,10 @@ function ChatPage() {
     }
   };
 
-  const onSubmitAgent = async () => {
-    if (!active || !input.trim() || loading) return;
-    const text = input.trim();
+  const onSubmitAgent = async (text: string) => {
+    if (!active || !text.trim() || loading) return;
+    text = text.trim();
     reserveExternalTab();
-    setInput("");
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
