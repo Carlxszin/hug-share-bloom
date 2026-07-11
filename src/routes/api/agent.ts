@@ -21,6 +21,13 @@ type Body = {
 };
 
 type LinkResult = { title: string; url: string; snippet?: string };
+type BrowserSnapshot = {
+  screenshot?: string;
+  title?: string;
+  url?: string;
+  text?: string;
+  elements?: Array<{ role?: string; text?: string; selector?: string; href?: string; visible?: boolean }>;
+};
 
 const MAX_STEPS = 12;
 const MAX_FETCHES = 8;
@@ -142,7 +149,7 @@ const TOOLS = [
     function: {
       name: "browse_real",
       description:
-        "Controla o Chrome real/persistente (Playwright bridge em http://localhost:7676). Use para navegar sozinho, ler site renderizado por JS, YouTube, clicar, rolar página, preencher campos, pressionar teclas e capturar screenshot. Ações: navigate, read, screenshot, click, scroll, fill, press. Para click/fill prefira text/label quando não souber CSS selector.",
+        "Controla a ÚNICA janela real/persistente do Chromium (Playwright bridge em http://localhost:7676), a mesma que o chefe deve acompanhar. Use para navegar sozinho, ler site renderizado por JS, YouTube, clicar, rolar página, preencher campos, pressionar teclas e capturar screenshot. Ações: navigate, read, screenshot, click, scroll, fill, press. Antes de click/fill em páginas abertas, faça read para ver elements; clique usando o text/label/selector de um elemento listado. Nunca invente URL com o nome da seção.",
       parameters: {
         type: "object",
         properties: {
@@ -187,9 +194,12 @@ const SYSTEM = `Você é Octopus Agent — um executor autônomo de tarefas web.
 Ferramentas: plan, web_search, fetch_page (com cache), extract_structured, compare_pages, calculate, screenshot, browse_real, read_pdf, open_url.
 Princípios:
 - SEMPRE comece chamando plan com 2-6 passos curtos do que vai fazer. Depois execute.
-- AJA, não só descreva. Se o chefe pede algo da web, USE web_search/fetch_page imediatamente.
+- AJA, não só descreva. Se o chefe pede algo da web moderna/interativa, use browse_real imediatamente.
 - Se o chefe pedir para rolar, clicar, navegar sozinho, interagir, ler YouTube/site moderno ou ver o que está na tela → use browse_real. NUNCA peça para o chefe clicar/rolar manualmente antes de tentar browse_real.
-- Para YouTube ou sites com JavaScript: use browse_real navigate/read, depois click/scroll/press quando necessário. open_url é só fallback visual quando o bridge estiver offline ou para abrir um link simples.
+- A janela oficial de navegação é o Chromium persistente do browse_real. Não abra uma segunda janela/iframe para a mesma tarefa.
+- Para YouTube ou sites com JavaScript: use browse_real navigate/read, depois click/scroll/press quando necessário. open_url é só fallback se o bridge estiver offline.
+- Antes de clicar em menu/seção/botão de um site já aberto: chame browse_real read, examine elements, e clique no texto/selector real. PROIBIDO transformar o pedido do chefe em URL inventada, query param ou hash quando ele pediu clique na página.
+- Se o chefe diz "role", "desça", "suba", "clique", "aperte", "preencha": faça a ação com browse_real, leia o snapshot retornado e continue. Não diga para o chefe fazer.
 - Pedidos nativos viram equivalentes web: "abre o Chrome" → google.com; "toca X no Spotify" → https://open.spotify.com/search/X; música/clipe → https://www.youtube.com/results?search_query=...
 - Para PDFs (URLs .pdf, artigos, papers, boletos), use read_pdf em vez de fetch_page.
 - Depois de qualquer click/fill/scroll/press com browse_real, leia o snapshot retornado e continue a tarefa automaticamente.
@@ -198,6 +208,9 @@ Princípios:
 - Use calculate para qualquer conta.
 - Cite as URLs usadas no final.
 - Responda em Português (Brasil), conciso, com bullets.`;
+
+const REAL_BROWSER_INTENT_RE =
+  /\b(rolar|role|descer|desça|subir|suba|clicar|clique|aperte|pressione|preencha|digite|navegue|navegar|abra|abrir|abre|youtube|youtu\.be|dji|site|página|pagina|se[cç][aã]o|aba)\b/i;
 
 const MEDIA_ACTION_RE =
   /\b(toca|toque|coloca|coloque|bota|bote|reproduz|reproduza|abre|abra|abrir|mostra|mostre)\b/i;
@@ -362,6 +375,59 @@ function screenshotUrl(url: string) {
   return `https://image.thum.io/get/width/1024/crop/768/https://${clean}`;
 }
 
+function browserActionPath(action: string) {
+  return action === "navigate" ? "/navigate" :
+    action === "read" ? "/read" :
+    action === "screenshot" ? "/screenshot" :
+    action === "click" ? "/click" :
+    action === "scroll" ? "/scroll" :
+    action === "fill" ? "/fill" :
+    action === "press" ? "/press" : null;
+}
+
+async function callBrowserBridge(args: Record<string, unknown>) {
+  const action = String(args.action ?? "read");
+  const path = browserActionPath(action);
+  if (!path) throw new Error(`ação desconhecida: ${action}`);
+  const r = await fetch(`http://localhost:7676${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(args),
+  }).catch(() => {
+    throw new Error("Playwright bridge offline (rode `node scripts/playwright-bridge.mjs`)");
+  });
+  if (!r.ok) throw new Error(`bridge ${r.status}: ${await r.text()}`);
+  return (await r.json()) as BrowserSnapshot;
+}
+
+function summarizeBrowserSnapshot(j: BrowserSnapshot) {
+  return JSON.stringify({
+    url: j.url,
+    title: j.title,
+    text: j.text?.slice(0, 5000),
+    elements: j.elements?.slice(0, 60),
+  }).slice(0, 9000);
+}
+
+function browserEvent(args: Record<string, unknown>, j: BrowserSnapshot) {
+  const action = String(args.action ?? "read");
+  const visible = j.elements?.filter((e) => e.visible).length ?? 0;
+  return {
+    type: "action",
+    tool: "browse_real",
+    input: args,
+    ok: true,
+    screenshotUrl: j.screenshot,
+    openedUrl: j.url,
+    result: j.title ? `${action}: ${j.title} · ${visible} elementos visíveis` : `${action} ok`,
+  };
+}
+
+async function browserSnapshotTool(args: Record<string, unknown>) {
+  const j = await callBrowserBridge(args);
+  return { j, toolResult: summarizeBrowserSnapshot(j), event: browserEvent(args, j) };
+}
+
 /** Safe arithmetic evaluator: digits, ops, parens, decimal, spaces. */
 function safeCalc(expr: string): number {
   if (!/^[\d+\-*/().,\s%]+$/.test(expr)) throw new Error("Expressão inválida");
@@ -495,6 +561,9 @@ export const Route = createFileRoute("/api/agent")({
 
         const messages: ChatMessage[] = [
           { role: "system", content: SYSTEM },
+          ...(REAL_BROWSER_INTENT_RE.test(body.messages.at(-1)?.content ?? "")
+            ? [{ role: "system" as const, content: "Este pedido exige controle real do Chromium. Use browse_real primeiro. Se a página já está aberta, comece com browse_real read sem url para enxergar a janela atual antes de decidir qualquer clique/scroll." }]
+            : []),
           ...body.messages.map((m) => ({ role: m.role, content: m.content })),
         ];
 
@@ -686,46 +755,9 @@ export const Route = createFileRoute("/api/agent")({
                         result: "captura gerada",
                       };
                     } else if (name === "browse_real") {
-                      const action = String(args.action);
-                      const path =
-                        action === "navigate" ? "/navigate" :
-                        action === "read" ? "/read" :
-                        action === "screenshot" ? "/screenshot" :
-                        action === "click" ? "/click" :
-                        action === "scroll" ? "/scroll" :
-                        action === "fill" ? "/fill" :
-                        action === "press" ? "/press" : null;
-                      if (!path) throw new Error(`ação desconhecida: ${action}`);
-                      const r = await fetch(`http://localhost:7676${path}`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(args),
-                      }).catch(() => {
-                        throw new Error("Playwright bridge offline (rode `node scripts/playwright-bridge.mjs`)");
-                      });
-                      if (!r.ok) throw new Error(`bridge ${r.status}: ${await r.text()}`);
-                      const j = (await r.json()) as {
-                        screenshot?: string;
-                        title?: string;
-                        url?: string;
-                        text?: string;
-                        elements?: Array<{ role?: string; text?: string; selector?: string; visible?: boolean }>;
-                      };
-                      toolResult = JSON.stringify({
-                        url: j.url,
-                        title: j.title,
-                        text: j.text?.slice(0, 5000),
-                        elements: j.elements?.slice(0, 50),
-                      }).slice(0, 8000);
-                      event = {
-                        type: "action",
-                        tool: name,
-                        input: args,
-                        ok: true,
-                        screenshotUrl: j.screenshot,
-                        openedUrl: j.url,
-                        result: j.title ? `${action}: ${j.title}` : `${action} ok`,
-                      };
+                      const out = await browserSnapshotTool(args);
+                      toolResult = out.toolResult;
+                      event = out.event;
                     } else if (name === "open_url") {
                       const u = String(args.url);
                       toolResult = `Aba aberta: ${u}`;
