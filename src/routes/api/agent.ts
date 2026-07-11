@@ -140,6 +140,38 @@ const TOOLS = [
   {
     type: "function" as const,
     function: {
+      name: "screenshot",
+      description: "Capture a screenshot of a public URL (thum.io).",
+      parameters: {
+        type: "object",
+        properties: {
+          url: { type: "string" },
+        },
+        required: ["url"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "browse_real",
+      description:
+        "Navegação real com Chrome (Playwright) rodando localmente em http://localhost:7676. Use quando o chefe pedir para clicar, preencher formulário, logar, ou capturar screenshot fiel de uma SPA. Ações: navigate, screenshot, click, fill. Só funciona se o bridge `node scripts/playwright-bridge.mjs` estiver rodando.",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["navigate", "screenshot", "click", "fill"] },
+          url: { type: "string" },
+          selector: { type: "string" },
+          value: { type: "string" },
+        },
+        required: ["action"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
       name: "open_url",
       description:
         "Open a URL in a new browser tab on the user's machine. Use when the user asks you to 'abrir', 'mostrar', 'tocar' (música → YouTube), or navegar até um site. Always prefer this over only describing a link.",
