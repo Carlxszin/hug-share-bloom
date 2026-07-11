@@ -211,6 +211,8 @@ Princípios:
 
 const REAL_BROWSER_INTENT_RE =
   /\b(rolar|role|descer|desça|subir|suba|clicar|clique|aperte|pressione|preencha|digite|navegue|navegar|abra|abrir|abre|youtube|youtu\.be|dji|site|página|pagina|se[cç][aã]o|aba)\b/i;
+const SIMPLE_SCROLL_RE = /\b(rolar|role|descer|desça|subir|suba)\b/i;
+const TARGETED_SCROLL_RE = /\b(at[eé]|para|at[eé] a|se[cç][aã]o|menu|bot[aã]o|link|drones?|câmera|camera)\b/i;
 
 const MEDIA_ACTION_RE =
   /\b(toca|toque|coloca|coloque|bota|bote|reproduz|reproduza|abre|abra|abrir|mostra|mostre)\b/i;
@@ -423,6 +425,10 @@ function browserEvent(args: Record<string, unknown>, j: BrowserSnapshot) {
   };
 }
 
+function makeBrowserSystemSnapshot(j: BrowserSnapshot) {
+  return `Snapshot atual do Chromium persistente antes de agir:\n${summarizeBrowserSnapshot(j)}\nUse estes elements para clicar/rolar. Se elements não tiver a seção pedida, role ou use busca/menus; não invente URLs.`;
+}
+
 async function browserSnapshotTool(args: Record<string, unknown>) {
   const j = await callBrowserBridge(args);
   return { j, toolResult: summarizeBrowserSnapshot(j), event: browserEvent(args, j) };
@@ -484,6 +490,7 @@ export const Route = createFileRoute("/api/agent")({
         if (!KNOWN.has(body.model)) body.model = "gpt-5-mini";
         const maxUsd = body.maxUsd ?? DEFAULT_MAX_USD;
 
+        const latestUser = body.messages.at(-1)?.content ?? "";
         const directMediaQuery = resolveMediaQuery(body.messages);
         if (directMediaQuery) {
           const encoder = new TextEncoder();
@@ -511,24 +518,9 @@ export const Route = createFileRoute("/api/agent")({
 
                 let openedByBrowser = false;
                 try {
-                  const r = await fetch("http://localhost:7676/navigate", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ action: "navigate", url: best.url }),
-                  });
-                  if (r.ok) {
-                    const j = (await r.json()) as { title?: string; url?: string; screenshot?: string };
-                    openedByBrowser = true;
-                    send({
-                      type: "action",
-                      tool: "browse_real",
-                      input: { action: "navigate", url: best.url },
-                      ok: true,
-                      openedUrl: j.url ?? best.url,
-                      screenshotUrl: j.screenshot,
-                      result: j.title ?? best.title,
-                    });
-                  }
+                  const out = await browserSnapshotTool({ action: "navigate", url: best.url });
+                  openedByBrowser = true;
+                  send(out.event);
                 } catch {
                   /* bridge local offline: fallback abaixo */
                 }
@@ -559,9 +551,43 @@ export const Route = createFileRoute("/api/agent")({
           return ndjsonResponse(stream);
         }
 
+        if (SIMPLE_SCROLL_RE.test(latestUser) && !TARGETED_SCROLL_RE.test(latestUser)) {
+          const encoder = new TextEncoder();
+          const stream = new ReadableStream({
+            async start(controller) {
+              const send = (obj: unknown) =>
+                controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+              try {
+                send({ type: "limits", maxUsd, maxSteps: MAX_STEPS, maxFetches: MAX_FETCHES });
+                send({
+                  type: "action",
+                  tool: "plan",
+                  input: { steps: ["Rolar a janela real do Chromium", "Ler o estado visível depois da rolagem"] },
+                  ok: true,
+                  plan: ["Rolar a janela real do Chromium", "Ler o estado visível depois da rolagem"],
+                  result: "2 passos",
+                });
+                const direction = /\b(subir|suba)\b/i.test(latestUser) ? "up" : "down";
+                const out = await browserSnapshotTool({ action: "scroll", direction, amount: 900 });
+                send(out.event);
+                send({
+                  type: "done",
+                  message: `Rolei a página ${direction === "up" ? "para cima" : "para baixo"}, chefe.`,
+                  usage: { inputTokens: 0, outputTokens: 0, usd: 0 },
+                });
+              } catch (e) {
+                send({ type: "error", message: (e as Error).message });
+              } finally {
+                controller.close();
+              }
+            },
+          });
+          return ndjsonResponse(stream);
+        }
+
         const messages: ChatMessage[] = [
           { role: "system", content: SYSTEM },
-          ...(REAL_BROWSER_INTENT_RE.test(body.messages.at(-1)?.content ?? "")
+          ...(REAL_BROWSER_INTENT_RE.test(latestUser)
             ? [{ role: "system" as const, content: "Este pedido exige controle real do Chromium. Use browse_real primeiro. Se a página já está aberta, comece com browse_real read sem url para enxergar a janela atual antes de decidir qualquer clique/scroll." }]
             : []),
           ...body.messages.map((m) => ({ role: m.role, content: m.content })),
@@ -592,6 +618,19 @@ export const Route = createFileRoute("/api/agent")({
             let totalOut = 0;
             try {
               send({ type: "limits", maxUsd, maxSteps: MAX_STEPS, maxFetches: MAX_FETCHES });
+
+              if (REAL_BROWSER_INTENT_RE.test(latestUser)) {
+                try {
+                  const out = await browserSnapshotTool({ action: "read" });
+                  send(out.event);
+                  messages.push({ role: "system", content: makeBrowserSystemSnapshot(out.j) });
+                } catch (e) {
+                  messages.push({
+                    role: "system",
+                    content: `O Chromium persistente ainda não respondeu: ${(e as Error).message}. Se precisar navegar/interagir, tente browse_real mesmo assim e só use open_url como fallback final.`,
+                  });
+                }
+              }
 
               for (let step = 0; step < MAX_STEPS; step++) {
                 // Cost cap check
