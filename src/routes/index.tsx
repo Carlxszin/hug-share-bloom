@@ -437,10 +437,9 @@ function ChatPage() {
     }
   };
 
-  const onSubmitBuilder = async () => {
-    if (!active || !input.trim() || loading) return;
-    const text = input.trim();
-    setInput("");
+  const onSubmitBuilder = async (text: string) => {
+    if (!active || !text.trim() || loading) return;
+    text = text.trim();
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
