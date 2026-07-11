@@ -648,6 +648,33 @@ export const Route = createFileRoute("/api/agent")({
                         screenshotUrl: sUrl,
                         result: "captura gerada",
                       };
+                    } else if (name === "browse_real") {
+                      const action = String(args.action);
+                      const path =
+                        action === "navigate" ? "/navigate" :
+                        action === "screenshot" ? "/screenshot" :
+                        action === "click" ? "/click" :
+                        action === "fill" ? "/fill" : null;
+                      if (!path) throw new Error(`ação desconhecida: ${action}`);
+                      const r = await fetch(`http://localhost:7676${path}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(args),
+                      }).catch(() => {
+                        throw new Error("Playwright bridge offline (rode `node scripts/playwright-bridge.mjs`)");
+                      });
+                      if (!r.ok) throw new Error(`bridge ${r.status}: ${await r.text()}`);
+                      const j = (await r.json()) as { screenshot?: string; title?: string; url?: string };
+                      toolResult = JSON.stringify(j).slice(0, 4000);
+                      event = {
+                        type: "action",
+                        tool: name,
+                        input: args,
+                        ok: true,
+                        screenshotUrl: j.screenshot,
+                        openedUrl: j.url,
+                        result: j.title ?? `${action} ok`,
+                      };
                     } else if (name === "open_url") {
                       const u = String(args.url);
                       toolResult = `Aba aberta: ${u}`;
