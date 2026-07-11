@@ -30,6 +30,33 @@ const TOOLS = [
   {
     type: "function" as const,
     function: {
+      name: "plan",
+      description:
+        "Declare seu plano ANTES de executar. Chame UMA vez no início com uma lista curta (2-6 passos) de subtarefas em Português. Ajuda o chefe a acompanhar o progresso.",
+      parameters: {
+        type: "object",
+        properties: {
+          steps: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 6 },
+        },
+        required: ["steps"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "read_pdf",
+      description:
+        "Baixa um PDF público (URL terminando em .pdf ou content-type application/pdf) e retorna o texto extraído em Markdown. Use para artigos, papers, manuais, boletos.",
+      parameters: {
+        type: "object",
+        properties: { url: { type: "string" } },
+        required: ["url"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
       name: "web_search",
       description:
         "Search the web via DuckDuckGo. Returns up to 8 results (title, url, snippet).",
