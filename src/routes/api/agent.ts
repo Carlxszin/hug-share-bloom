@@ -515,7 +515,37 @@ export const Route = createFileRoute("/api/agent")({
                     const args = JSON.parse(call.function.arguments);
                     const name = call.function.name;
 
-                    if (name === "web_search") {
+                    if (name === "plan") {
+                      const steps = Array.isArray(args.steps)
+                        ? (args.steps as unknown[]).map((s) => String(s)).slice(0, 6)
+                        : [];
+                      toolResult = `Plano registrado com ${steps.length} passos.`;
+                      event = {
+                        type: "action",
+                        tool: name,
+                        input: args,
+                        ok: true,
+                        plan: steps,
+                        result: `${steps.length} passos`,
+                      };
+                    } else if (name === "read_pdf") {
+                      const target = String(args.url);
+                      const proxied = `https://r.jina.ai/${target.replace(/^https?:\/\//, "https://")}`;
+                      const r = await fetch(proxied, {
+                        headers: { "Accept": "text/plain", "X-Return-Format": "markdown" },
+                      });
+                      if (!r.ok) throw new Error(`PDF ${r.status}`);
+                      const txt = (await r.text()).slice(0, 8000);
+                      pageCache.set(target, txt);
+                      toolResult = txt;
+                      event = {
+                        type: "action",
+                        tool: name,
+                        input: args,
+                        ok: true,
+                        result: `${txt.length} chars extraídos do PDF`,
+                      };
+                    } else if (name === "web_search") {
                       const links = await ddgSearch(String(args.query));
                       toolResult = JSON.stringify(links);
                       event = {
