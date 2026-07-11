@@ -1,41 +1,69 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowUp, Square, Mic, Loader2, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-export function Composer({
-  value,
-  onChange,
-  onSubmit,
-  onStop,
-  loading,
-  onCall,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onSubmit: () => void;
+export type ComposerHandle = {
+  setValue: (v: string) => void;
+  getValue: () => string;
+  focus: () => void;
+};
+
+type Props = {
+  onSubmit: (text: string) => void;
   onStop: () => void;
   loading: boolean;
   onCall?: () => void;
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null);
+};
+
+export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
+  { onSubmit, onStop, loading, onCall },
+  ref,
+) {
+  const taRef = useRef<HTMLTextAreaElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [recError, setRecError] = useState<string | null>(null);
+  // Track whether the textarea currently has any text — only re-renders on
+  // empty<->non-empty transitions, not on every keystroke.
+  const [hasText, setHasText] = useState(false);
 
-  useEffect(() => {
-    if (!loading) ref.current?.focus();
-  }, [loading]);
-
-  useEffect(() => {
-    const el = ref.current;
+  const resize = () => {
+    const el = taRef.current;
     if (!el) return;
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 200) + "px";
-  }, [value]);
+  };
+
+  useImperativeHandle(ref, () => ({
+    setValue: (v: string) => {
+      const el = taRef.current;
+      if (!el) return;
+      el.value = v;
+      setHasText(v.trim().length > 0);
+      resize();
+    },
+    getValue: () => taRef.current?.value ?? "",
+    focus: () => taRef.current?.focus(),
+  }));
+
+  useEffect(() => {
+    if (!loading) taRef.current?.focus();
+  }, [loading]);
+
+  const submit = () => {
+    const el = taRef.current;
+    if (!el) return;
+    const text = el.value.trim();
+    if (!text || loading) return;
+    el.value = "";
+    setHasText(false);
+    resize();
+    onSubmit(text);
+  };
 
   const startRec = async () => {
     setRecError(null);
@@ -60,7 +88,14 @@ export function Composer({
           const res = await fetch("/api/transcribe", { method: "POST", body: fd });
           if (!res.ok) throw new Error(await res.text());
           const data = (await res.json()) as { text: string };
-          if (data.text) onChange((value ? value + " " : "") + data.text);
+          if (data.text) {
+            const el = taRef.current;
+            if (el) {
+              el.value = (el.value ? el.value + " " : "") + data.text;
+              setHasText(el.value.trim().length > 0);
+              resize();
+            }
+          }
         } catch (err) {
           setRecError((err as Error).message);
         } finally {
@@ -84,21 +119,23 @@ export function Composer({
   return (
     <div className="px-4 md:px-8 pb-6 pt-2">
       <div className="max-w-3xl mx-auto">
-        <motion.div
-          layout
-          className="relative group"
-        >
+        <div className="relative group">
           <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-primary/40 to-primary/10 opacity-0 group-focus-within:opacity-100 blur-md transition-opacity duration-500 pointer-events-none" />
           <div className="relative rounded-2xl border border-white/10 bg-[#15151b] shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] transition-colors group-focus-within:border-white/20">
             <Textarea
-              ref={ref}
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
+              ref={taRef}
+              defaultValue=""
               disabled={transcribing}
+              onInput={(e) => {
+                const v = (e.target as HTMLTextAreaElement).value;
+                const next = v.trim().length > 0;
+                if (next !== hasText) setHasText(next);
+                resize();
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  if (!loading && value.trim()) onSubmit();
+                  submit();
                 }
               }}
               placeholder={
@@ -188,8 +225,8 @@ export function Composer({
                 <motion.div whileTap={{ scale: 0.92 }}>
                   <Button
                     size="icon"
-                    onClick={onSubmit}
-                    disabled={!value.trim() || transcribing}
+                    onClick={submit}
+                    disabled={!hasText || transcribing}
                     aria-label="Enviar"
                     className="h-8 w-8 rounded-lg glow-primary"
                   >
@@ -199,7 +236,7 @@ export function Composer({
               )}
             </div>
           </div>
-        </motion.div>
+        </div>
         <p className="text-[10px] text-muted-foreground/70 text-center mt-3 tracking-wide">
           {recError ? (
             <span className="text-destructive">⚠️ {recError}</span>
@@ -210,4 +247,4 @@ export function Composer({
       </div>
     </div>
   );
-}
+});

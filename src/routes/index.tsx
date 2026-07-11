@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CallModal } from "@/components/chat/call-modal";
 import { FreeCallModal } from "@/components/chat/free-call-modal";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
-import { Composer } from "@/components/chat/composer";
+import { Composer, type ComposerHandle } from "@/components/chat/composer";
 import { CostBar } from "@/components/chat/cost-bar";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { HtmlPreview } from "@/components/chat/html-preview";
@@ -63,7 +63,8 @@ export type BuilderActivity = {
 function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string>("");
-  const [input, setInput] = useState("");
+  const composerRef = useRef<ComposerHandle>(null);
+  const prefill = useCallback((v: string) => composerRef.current?.setValue(v), []);
   const [loading, setLoading] = useState(false);
   const [rate, setRate] = useState(5.4);
   const [callOpen, setCallOpen] = useState(false);
@@ -156,17 +157,16 @@ function ChatPage() {
 
   const onStop = () => abortRef.current?.abort();
 
-  const onSubmit = async () => {
-    if (!active || !input.trim() || loading) return;
-    if (active.kind === "builder") return onSubmitBuilder();
-    if (active.kind === "agent") return onSubmitAgent();
-    const text = input.trim();
+  const onSubmit = async (text: string) => {
+    if (!active || !text.trim() || loading) return;
+    if (active.kind === "builder") return onSubmitBuilder(text);
+    if (active.kind === "agent") return onSubmitAgent(text);
+    text = text.trim();
 
     // Image-generation shortcut: enqueue + lightweight ack, no model call.
     const imagePrompt = detectImagePrompt(text);
     if (imagePrompt) {
       enqueueImage(imagePrompt);
-      setInput("");
       const userMsg: Message = {
         id: crypto.randomUUID(),
         role: "user",
@@ -194,7 +194,6 @@ function ChatPage() {
     if (/\b(abr[ei]r?|tocar?|p[õo]e|p[õo]r|mostr[ae]r?|coloca|navega[rd]?o?|http[s]?:\/\/)/i.test(text)) {
       reserveExternalTab();
     }
-    setInput("");
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -438,10 +437,9 @@ function ChatPage() {
     }
   };
 
-  const onSubmitBuilder = async () => {
-    if (!active || !input.trim() || loading) return;
-    const text = input.trim();
-    setInput("");
+  const onSubmitBuilder = async (text: string) => {
+    if (!active || !text.trim() || loading) return;
+    text = text.trim();
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -611,11 +609,10 @@ function ChatPage() {
     }
   };
 
-  const onSubmitAgent = async () => {
-    if (!active || !input.trim() || loading) return;
-    const text = input.trim();
+  const onSubmitAgent = async (text: string) => {
+    if (!active || !text.trim() || loading) return;
+    text = text.trim();
     reserveExternalTab();
-    setInput("");
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -833,7 +830,7 @@ function ChatPage() {
             <div className="flex flex-col w-[44%] min-w-[340px] max-w-[560px] border-r border-white/5">
               <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
                 {active.messages.length === 0 ? (
-                  <BuilderEmpty onPick={setInput} />
+                  <BuilderEmpty onPick={prefill} />
                 ) : (
                   <div className="max-w-2xl mx-auto px-2">
                     {active.messages.map((m) => (
@@ -843,8 +840,7 @@ function ChatPage() {
                 )}
               </div>
               <Composer
-                value={input}
-                onChange={setInput}
+                ref={composerRef}
                 onSubmit={onSubmit}
                 onStop={onStop}
                 loading={loading}
@@ -869,7 +865,7 @@ function ChatPage() {
             <div className="flex flex-col flex-1 min-w-0 lg:border-r border-white/5 min-h-0">
               <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
                 {active.messages.length === 0 ? (
-                  <AgentEmpty onPick={setInput} />
+                  <AgentEmpty onPick={prefill} />
                 ) : (
                   <div className="max-w-3xl mx-auto">
                     {active.messages.map((m) => (
@@ -879,8 +875,7 @@ function ChatPage() {
                 )}
               </div>
               <Composer
-                value={input}
-                onChange={setInput}
+                ref={composerRef}
                 onSubmit={onSubmit}
                 onStop={onStop}
                 loading={loading}
@@ -898,7 +893,7 @@ function ChatPage() {
           <>
             <div ref={scrollRef} className="relative flex-1 overflow-y-auto scrollbar-thin z-10">
               {active.messages.length === 0 ? (
-                <EmptyState onPick={setInput} />
+                <EmptyState onPick={prefill} />
               ) : (
                 <div className="max-w-3xl mx-auto">
                   {active.messages.map((m) => (
@@ -910,8 +905,7 @@ function ChatPage() {
 
             <div className="relative z-10">
               <Composer
-                value={input}
-                onChange={setInput}
+                ref={composerRef}
                 onSubmit={onSubmit}
                 onStop={onStop}
                 loading={loading}
