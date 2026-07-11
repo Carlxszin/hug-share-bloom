@@ -35,15 +35,15 @@ export const Route = createFileRoute("/api/realtime-session")({
                   transcription: null,
                   turn_detection: {
                     type: "server_vad",
-                    threshold: 0.7,
-                    prefix_padding_ms: 150,
-                    silence_duration_ms: 300,
+                    threshold: 0.8,
+                    prefix_padding_ms: 100,
+                    silence_duration_ms: 200,
                     create_response: true,
                     interrupt_response: true,
                   },
                 },
               },
-              max_output_tokens: 200,
+              max_output_tokens: 90,
               tools: [
                 {
                   type: "function",
